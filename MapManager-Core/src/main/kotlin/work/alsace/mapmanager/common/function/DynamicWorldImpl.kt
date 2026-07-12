@@ -2,7 +2,6 @@ package work.alsace.mapmanager.common.function
 
 import net.luckperms.api.model.user.User
 import org.bukkit.*
-import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitRunnable
 import org.mvplugins.multiverse.core.world.MultiverseWorld
 import org.mvplugins.multiverse.core.world.WorldManager
@@ -313,6 +312,12 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功导入，返回true；否则返回false。
      */
     override fun importWorld(name: String, alias: String, color: String, generate: MMWorldType): Boolean {
+        val safeName = name.lowercase(Locale.getDefault())
+
+        if (name != safeName) {
+            plugin.logger.warning("检测到地图名称包含大写字母: '$name'")
+            plugin.logger.warning("已自动转换为符合规范的小写名称: '$safeName'")
+        }
         val defaultWorld = plugin.server.worlds[0].name
         val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
         if (!file.exists()) {
@@ -320,7 +325,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             return false
         }
         val versionCheck = plugin.getVersionCheck()
-        if (!versionCheck.isMapVersionCorrect(name)) {
+        if (!versionCheck.isMapVersionCorrect(safeName)) {
             plugin.logger.info("地图版本过高")
             return false
         }
@@ -330,12 +335,11 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             MMWorldType.VOID -> gene = World.Environment.NORMAL
             MMWorldType.NETHER -> gene = World.Environment.NETHER
             MMWorldType.END -> gene = World.Environment.THE_END
-            else -> {
-            }
+            MMWorldType.NORMAL -> World.Environment.NORMAL
         }
         try {
             var success = false
-            val key = NamespacedKey("minecraft", name)
+            val key = NamespacedKey("minecraft", safeName)
             mv?.importWorld(
                 ImportWorldOptions.worldKey(key)
                     .environment(gene)
@@ -353,11 +357,14 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
 //                plugin.logger.warning("§c导入" + name + "时出现错误")
 //                return false
 //            }
-        } catch (_: IllegalArgumentException) {
+        } catch (e: Exception) {
+            e.printStackTrace()
+            plugin.logger.warning("§c导入地图异常")
+            return false
         }
-        val world = getMVWorld(name)
+        val world = getMVWorld(safeName)
         if (world == null) {
-            plugin.logger.warning("§c获取" + name + "信息失败")
+            plugin.logger.warning("§c获取" + safeName + "信息失败")
             return false
         }
         initWorld(world, alias)
@@ -373,13 +380,19 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功创建，返回true；否则返回false。
      */
     override fun createWorld(name: String, alias: String, color: String, generate: MMWorldType): Boolean {
+        val safeName = name.lowercase(Locale.getDefault())
+
+        if (name != safeName) {
+            plugin.logger.warning("检测到地图名称包含大写字母: '$name'")
+            plugin.logger.warning("已自动转换为符合规范的小写名称: '$safeName'")
+        }
         val defaultWorld = plugin.server.worlds[0].name
         val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
         if (file.exists()) {
             plugin.logger.warning("§c世界" + name + "已经存在")
             return false
         }
-        val key = NamespacedKey("minecraft", name)
+        val key = NamespacedKey("minecraft", safeName)
         plugin.logger.warning(key.toString())
         when (generate) {
             MMWorldType.VOID -> {
@@ -428,9 +441,9 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                 )
             }
         }
-        val world = getMVWorld(name)
+        val world = getMVWorld(safeName)
         if (world == null) {
-            plugin.logger.warning("§c获取" + name + "信息失败")
+            plugin.logger.warning("§c获取" + safeName + "信息失败")
             return false
         }
         initWorld(world, alias)
