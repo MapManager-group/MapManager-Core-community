@@ -12,8 +12,10 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabExecutor
 import org.bukkit.entity.Player
+import org.mvplugins.multiverse.core.world.MultiverseWorld
 import work.alsace.mapmanager.MapManager
 import work.alsace.mapmanager.enums.MapGroup
+import work.alsace.mapmanager.pojo.WorldNode
 import work.alsace.mapmanager.service.DynamicWorld
 import work.alsace.mapmanager.service.MapAgent
 import java.util.*
@@ -427,9 +429,10 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                     return false
                 }
                 val world = dynamicWorld.getMVWorld(sender.world.name)
-                val result = ignoreColor(args[1], world?.color!!)
-                world.alias = result
-                sender.sendMessage("§a已将世界名称修改为： " + world.color + result)
+                if (world != null) {
+                    mapAgent.setWorldAlias(world.name, args[1])
+                }
+                sender.sendMessage("§a已将世界名称修改为： ${args.contentToString()}[1]")
             }
 
             "blockupdate", "physics", "physical" -> {
@@ -493,7 +496,7 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                     sender.sendMessage(
                         "§b当前地图已 "
                                 + (if (dynamicWorld.getMVWorld(sender.world.name)
-                                ?.isPVPEnabled == true
+                                ?.pvp == true
                         ) "开启" else "关闭")
                                 + " PVP"
                     )
@@ -502,13 +505,13 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                 when (getOperation(args[1])) {
                     Operation.ENABLE -> {
                         //set to true
-                        dynamicWorld.getMVWorld(sender.world.name)?.setPVPMode(true)
+                        dynamicWorld.getMVWorld(sender.world.name)?.pvp = true
                         sender.sendMessage("§a已开启PVP")
                     }
 
                     Operation.DISABLE -> {
                         //set to false
-                        dynamicWorld.getMVWorld(sender.world.name)?.setPVPMode(false)
+                        dynamicWorld.getMVWorld(sender.world.name)?.pvp = false
                         sender.sendMessage("§a已关闭PVP")
                     }
 
@@ -517,7 +520,7 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                         sender.sendMessage(
                             "§b当前地图已 "
                                     + (if (dynamicWorld.getMVWorld(sender.world.name)
-                                    ?.isPVPEnabled == true
+                                    ?.pvp == true
                             ) "开启" else "关闭")
                                     + " PVP"
                         )
@@ -581,7 +584,7 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                 }
                 sender.sendMessage("§e正在传送...")
                 if (mvworld != null) {
-                    sender.teleport(mvworld.cbWorld.spawnLocation)
+                    dynamicWorld.getSpawnLocation()?.let { sender.teleport(it) }
                 }
             }
 
@@ -614,18 +617,6 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
             return true
         }
         return false
-    }
-
-    private fun ignoreColor(string: String?, color: Any): String {
-        val hexPattern = Pattern.compile(/* regex = 十六进制颜色*/ "&([A-Fa-f0-9k-oK-O]|R|r)")
-        val matcher = string?.let { hexPattern.matcher(it) }
-        val builder = string?.let { StringBuilder(it.length) }
-        if (matcher != null) {
-            while (matcher.find()) {
-                matcher.appendReplacement(builder, "&" + color + matcher.group(0)[1])
-            }
-        }
-        return matcher?.appendTail(builder).toString()
     }
 
     private fun checkLength(str: String?): Boolean {

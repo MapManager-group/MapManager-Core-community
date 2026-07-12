@@ -1,9 +1,10 @@
 package work.alsace.mapmanager.service
 
-import com.onarandombox.MultiverseCore.api.MVWorldManager
-import com.onarandombox.MultiverseCore.api.MultiverseWorld
 import net.luckperms.api.model.user.User
 import org.bukkit.Location
+import org.mvplugins.multiverse.core.world.MultiverseWorld
+import org.mvplugins.multiverse.core.world.WorldManager
+import org.mvplugins.multiverse.external.vavr.control.Option
 import work.alsace.mapmanager.enums.MMWorldType
 
 /**
@@ -15,7 +16,7 @@ interface DynamicWorld {
      * 获取Multiverse-Core的世界管理器。
      * @return MVWorldManager实例，如果Multiverse-Core插件不存在则为null。
      */
-    fun getMVWorldManager(): MVWorldManager?
+    fun getMVWorldManager(): WorldManager?
 
     /**
      * 检查指定名称的世界是否已加载。

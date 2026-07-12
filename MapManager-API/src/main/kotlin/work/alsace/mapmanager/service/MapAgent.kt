@@ -270,9 +270,9 @@ interface MapAgent {
 
     /**
      * 忽略字符颜色
-     * @param string 字符串
-     * @param color ChatColor 颜色
+     * @param string String 字符串
+     * @param world String 地图名
      * @return 返回的字符串
      */
-    fun ignoreColor(string: String, color: ChatColor): String
+    fun ignoreColor(string: String, world: String): String
 }

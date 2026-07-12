@@ -1,6 +1,5 @@
 package work.alsace.mapmanager
 
-import com.onarandombox.MultiverseCore.MultiverseCore
 import net.luckperms.api.LuckPerms
 import net.luckperms.api.node.types.InheritanceNode
 import org.apache.logging.log4j.LogManager
@@ -9,6 +8,7 @@ import org.bukkit.Bukkit
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.TabExecutor
 import org.bukkit.plugin.java.JavaPlugin
+import org.mvplugins.multiverse.core.MultiverseCoreApi
 import work.alsace.mapmanager.common.command.*
 import work.alsace.mapmanager.common.function.VersionCheckImpl
 import work.alsace.mapmanager.common.listener.BlockListener
@@ -30,7 +30,7 @@ class MapManagerImpl : JavaPlugin(), MapManager {
     private var luckPerms: LuckPerms? = null
     private var yaml: MainYaml? = null
     private var versionCheck: VersionCheck? = null
-    var multiverseCore: MultiverseCore? = null
+    var coreApi: MultiverseCoreApi? = null
     override fun onEnable() {
         server.consoleSender.sendMessage("[§6MapManager§7] §f启动中...")
 
@@ -44,7 +44,14 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         logger.info("正在获取LuckPerms API...")
         (LogManager.getRootLogger() as Logger).addFilter(Log4JFilter())
         luckPerms = Bukkit.getServicesManager().getRegistration(LuckPerms::class.java)?.provider
-        multiverseCore = Bukkit.getServer().pluginManager.getPlugin("Multiverse-Core") as MultiverseCore?
+//        multiverseCore = Bukkit.getServer().pluginManager.getPlugin("Multiverse-Core") as MultiverseCore?
+        val provider = Bukkit.getServicesManager().getRegistration(MultiverseCoreApi::class.java)
+        if (provider != null) {
+            coreApi = provider.provider
+        }
+        if (coreApi == null) {
+            logger.warning("加载MultiverseCore失败")
+        }
         initPermission()
 
         VersionBridge().serverVersionChecks(this)

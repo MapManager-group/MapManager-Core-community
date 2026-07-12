@@ -16,6 +16,7 @@ import org.bukkit.OfflinePlayer
 import org.bukkit.World
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import org.mvplugins.multiverse.core.world.options.UnloadWorldOptions
 import work.alsace.mapmanager.MapManagerImpl
 import work.alsace.mapmanager.enums.MapGroup
 import work.alsace.mapmanager.pojo.MainConfig
@@ -207,7 +208,10 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
                 player.sendMessage("§7世界" + world + "正在被删除，您已被传送至出生点")
             }
         }
-        dynamicWorld.getMVWorldManager()?.unloadWorld(world, true)
+        dynamicWorld.getMVWorldManager()?.unloadWorld(UnloadWorldOptions.world(
+            dynamicWorld.getMVWorldManager()?.getLoadedWorld(world)?.get()
+        ))
+//        dynamicWorld.getMVWorldManager()?.unloadWorld(world, true)
         val enter = PermissionNode.builder("multiverse.access." + (world.lowercase(Locale.getDefault()))).build()
         um.searchAll(NodeMatcher.key(enter))
             .thenAcceptAsync { result: MutableMap<UUID?, MutableCollection<PermissionNode?>?>? ->
@@ -399,7 +403,13 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         }
         lp.data().add(PermissionNode.builder("multiverse.access." + world.lowercase(Locale.getDefault())).build())
         luckPerms.groupManager.saveGroup(lp)
-        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkgreen") }
+        luckPerms.groupManager.saveGroup(lp)
+        var alias = dynamicWorld.getMVWorld(world)?.alias
+        if (alias == null) {
+            alias = world
+        }
+        dynamicWorld.getMVWorld(world)?.alias = "&2${alias}"
+//        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkgreen") }
         return true
     }
 
@@ -418,7 +428,12 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         lp.data()
             .remove(PermissionNode.builder("multiverse.access." + world.lowercase(Locale.getDefault())).build())
         luckPerms.groupManager.saveGroup(lp)
-        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkaqua") }
+        var alias = dynamicWorld.getMVWorld(world)?.alias
+        if (alias == null) {
+            alias = world
+        }
+        dynamicWorld.getMVWorld(world)?.alias = "&3${alias}"
+//        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkaqua") }
         return true
     }
 
@@ -617,24 +632,24 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
      */
     override fun setWorldAlias(worldName: String, alias: String) {
         val world = dynamicWorld.getMVWorld(worldName)
-        val result = ignoreColor(alias, world!!.color)
-        world.alias = result
+        val result = ignoreColor(alias, worldName)
+        world?.alias = result
     }
 
-    /**
-     * 忽略字符颜色
-     * @param string 字符串
-     * @param color ChatColor 颜色
-     * @return 返回的字符串
-     */
-    override fun ignoreColor(string: String, color: ChatColor): String {
-        val hexPattern = Pattern.compile("&([A-Fa-f0-9k-oK-O]|R|r)")
-        val matcher = hexPattern.matcher(string)
-        val builder = StringBuilder(string.length)
-        while (matcher.find()) {
-            matcher.appendReplacement(builder, "&" + color + matcher.group(0)[1])
+    override fun ignoreColor(string: String, world: String): String {
+        val str = if (string.length > 2 && string.startsWith("&")) string.substring(2) else string
+        return if(isPublic(world)){
+            "&2${str}"
+        } else {
+            "&3${str}"
         }
-        return matcher.appendTail(builder).toString()
+//        val hexPattern = Pattern.compile("&([A-Fa-f0-9k-oK-O]|R|r)")
+//        val matcher = hexPattern.matcher(string)
+//        val builder = StringBuilder(string.length)
+//        while (matcher.find()) {
+//            matcher.appendReplacement(builder, "&" + color + matcher.group(0)[1])
+//        }
+//        return matcher.appendTail(builder).toString()
     }
 
     /**

@@ -11,13 +11,13 @@ plugins {
 }
 
 group = "work.alsace.mapmanager"
-version = "3.1.11-snapshot"
+version = "3.2.0-snapshot"
 
 
 dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    compileOnly("org.mvpluginsmultiverse.core:multiverse-core:5.7.0")
+    compileOnly("org.mvplugins.multiverse.core:multiverse-core:5.7.2")
     compileOnly("net.luckperms:api:5.3")
     compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
 }
