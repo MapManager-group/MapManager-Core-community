@@ -12,19 +12,16 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabExecutor
 import org.bukkit.entity.Player
-import org.mvplugins.multiverse.core.world.MultiverseWorld
-import work.alsace.mapmanager.MapManager
+import work.alsace.mapmanager.MapManagerImpl
 import work.alsace.mapmanager.enums.MapGroup
-import work.alsace.mapmanager.pojo.WorldNode
 import work.alsace.mapmanager.service.DynamicWorld
 import work.alsace.mapmanager.service.MapAgent
 import java.util.*
 import java.util.concurrent.ExecutionException
-import java.util.regex.Pattern
 import java.util.stream.Collectors
 import java.util.stream.Stream
 
-class WorldCommand(plugin: MapManager) : TabExecutor {
+class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
     private var args: Array<String>? = null
     private var sender: CommandSender? = null
     private val dynamicWorld: DynamicWorld = plugin.getDynamicWorld()
@@ -405,7 +402,7 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                     return false
                 }
                 dynamicWorld.getSpawnLocation()?.let { kicked.teleport(it) }
-                kicked.sendMessage("§c你被" + sender.getName() + "从他的世界中请出")
+                kicked.sendMessage("§c你被" + sender.name + "从他的世界中请出")
                 sender.sendMessage("§a已将玩家" + args[1] + "从你的世界中请出")
             }
 
@@ -413,7 +410,8 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                 if (noPermission(sender)) return false
                 //set world spawn point
                 val loc: Location = sender.location
-                sender.world.setSpawnLocation(loc)
+                dynamicWorld.getMVWorldManager()?.getWorld(sender.world)?.get()?.let { it.spawnLocation = loc }
+                sender.world.spawnLocation = loc
                 sender.sendMessage("§a已将世界出生点设置为： (" + loc.blockX + ", " + loc.blockY + ", " + loc.blockZ + ')')
             }
 
@@ -532,7 +530,7 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                 if (noPermission(sender)) return false
                 if (args.size < 2) {
                     //show the status;
-                    sender.sendMessage("§b当前地图已 " + if (mapAgent.isPublic(sender.world.name)) "公开" else "未公开")
+                    sender.sendMessage("§b当前地图 " + if (mapAgent.isPublic(sender.world.name)) "已公开" else "未公开")
                     return false
                 }
                 when (getOperation(args[1])) {
@@ -563,29 +561,50 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
                     return false
                 }
                 val name = args[1].lowercase(Locale.getDefault())
-                if (!sender.hasPermission("multiverse.access.$name")) {
-                    sender.sendMessage("§c你没有权限进入此地图")
-                    return false
-                }
-                var mvworld = dynamicWorld.getLoadedWorld(name)
-                if (mvworld == null) {
-                    val correct = dynamicWorld.getCorrectUnloadedName(name)
-                    if (correct == null) {
-                        sender.sendMessage("§c未找到世界" + args[1])
-                        return false
+                val worldManager = dynamicWorld.getMVWorldManager()
+//              获取已加载的世界实例
+                val loadedWorldOption = worldManager?.getLoadedWorld(name)
+                loadedWorldOption?.let {
+                    // 未加载，获取世界实例
+                    if (it.isEmpty) {
+                        sender.sendMessage("§e加载世界中，请稍后...")
+                        if (!dynamicWorld.loadWorld(name)) {
+                            sender.sendMessage("§c世界 $name 加载失败，请联系管理员以解决该问题")
+                            return false
+                        }
+                        val loadedWorld = worldManager.getWorld(name).get()
+                        sender.sendMessage("§a世界加载完毕")
+                        sender.sendMessage("§e正在传送...")
+                        plugin.coreApi?.safetyTeleporter to loadedWorld.spawnLocation
+                    } else {
+                        sender.sendMessage("§e正在传送...")
+                        val loadedWorld = worldManager.getWorld(name).get()
+                        plugin.coreApi?.safetyTeleporter to loadedWorld.spawnLocation
                     }
-                    sender.sendMessage("§e加载世界中，请稍后...")
-                    if (!dynamicWorld.loadWorld(correct)) {
-                        sender.sendMessage("§c世界" + correct + "加载失败，请联系管理员以解决该问题")
-                        return false
-                    }
-                    sender.sendMessage("§a世界加载完毕")
-                    mvworld = dynamicWorld.getMVWorld(correct)
                 }
-                sender.sendMessage("§e正在传送...")
-                if (mvworld != null) {
-                    dynamicWorld.getSpawnLocation()?.let { sender.teleport(it) }
-                }
+//                if (!sender.hasPermission("multiverse.access.$name")) {
+//                    sender.sendMessage("§c你没有权限进入此地图")
+//                    return false
+//                }
+//                var mvworld = dynamicWorld.getLoadedWorld(name)
+//                if (mvworld == null) {
+//                    val correct = dynamicWorld.getCorrectUnloadedName(name)
+//                    if (correct == null) {
+//                        sender.sendMessage("§c未找到世界" + args[1])
+//                        return false
+//                    }
+//                    sender.sendMessage("§e加载世界中，请稍后...")
+//                    if (!dynamicWorld.loadWorld(correct)) {
+//                        sender.sendMessage("§c世界" + correct + "加载失败，请联系管理员以解决该问题")
+//                        return false
+//                    }
+//                    sender.sendMessage("§a世界加载完毕")
+//                    mvworld = dynamicWorld.getMVWorld(correct)
+//                }
+//                sender.sendMessage("§e正在传送...")
+//                if (mvworld != null) {
+//                    dynamicWorld.getSpawnLocation()?.let { sender.teleport(it) }
+//                }
             }
 
             else -> {
@@ -633,7 +652,14 @@ class WorldCommand(plugin: MapManager) : TabExecutor {
         return true
     }
 
-    private fun listMembers(set: MutableSet<String>, a: TextColor, b: TextColor, group: String, perm: String, sender: CommandSender) {
+    private fun listMembers(
+        set: MutableSet<String>,
+        a: TextColor,
+        b: TextColor,
+        group: String,
+        perm: String,
+        sender: CommandSender
+    ) {
         for (name in set) {
             if (name.isEmpty()) continue
             val prefix: Component = Component.text("> ", a)

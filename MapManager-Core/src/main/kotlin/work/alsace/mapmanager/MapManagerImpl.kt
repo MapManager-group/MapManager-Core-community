@@ -174,4 +174,8 @@ class MapManagerImpl : JavaPlugin(), MapManager {
     override fun getInstance(): MapManager? {
         return instance
     }
+
+    fun getMVApi(): MultiverseCoreApi? {
+        return coreApi
+    }
 }
