@@ -262,7 +262,17 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 包含所有潜在世界名称的集合。
      */
     override fun getPotentialWorlds(): MutableCollection<String?>? {
-        return mv?.worlds?.mapTo(mutableListOf()) { it.name }
+        val dimensionDir = File(plugin.server.worldContainer, "${plugin.server.worlds[0].name}/dimensions/minecraft")
+        val managedWorldNames = mv?.worlds?.map { it.name }?.toSet() ?: return mutableListOf()
+        if (!dimensionDir.exists() || !dimensionDir.isDirectory) {
+            return mutableListOf()
+        }
+        val fileNames = dimensionDir.listFiles()
+            ?.filter { it.isDirectory }
+            ?.filter { !managedWorldNames.contains(it.name) }
+            ?.map { it.name }
+            ?.toMutableList()
+        return fileNames ?: mutableListOf()
     }
 
     /**

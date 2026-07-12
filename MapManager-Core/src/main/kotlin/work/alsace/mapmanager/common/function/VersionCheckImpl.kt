@@ -27,7 +27,6 @@ class VersionCheckImpl(private val plugin: MapManagerImpl) : VersionCheck {
             plugin.logger.info("§cworld" + "名称不合法")
             return false
         }
-        plugin.logger.warning("合法")
         return true
     }
 

@@ -567,6 +567,10 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                 loadedWorldOption?.let {
                     // 未加载，获取世界实例
                     if (it.isEmpty) {
+                        if(!dynamicWorld.isExist(name)) {
+                            sender.sendMessage("§c世界 $name 不存在")
+                            return false
+                        }
                         sender.sendMessage("§e加载世界中，请稍后...")
                         if (!dynamicWorld.loadWorld(name)) {
                             sender.sendMessage("§c世界 $name 加载失败，请联系管理员以解决该问题")

@@ -24,7 +24,7 @@ class ImportCommand(private val plugin: MapManagerImpl) : TabExecutor {
                 val prefix = args[index].lowercase(Locale.getDefault())
                 plugin.getDynamicWorld().getPotentialWorlds()?.stream()
                     ?.map { s: String? -> "n:$s" }
-                    ?.filter { s: String? -> s?.lowercase(Locale.getDefault())!!.startsWith(prefix) }
+                    ?.filter { s: String? -> s?.lowercase(Locale.getDefault())?.startsWith(prefix) == true }
                     ?.collect(Collectors.toList())
             }
 
