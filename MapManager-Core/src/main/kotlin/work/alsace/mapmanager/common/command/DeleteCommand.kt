@@ -38,7 +38,7 @@ class DeleteCommand(plugin: MapManagerImpl) : TabExecutor {
         if (args.isEmpty()) {
             if (sender !is Player) {
                 sender.sendMessage("§c仅限玩家执行")
-                return true
+                return false
             }
             sender.sendMessage("§e若要确认删除世界" + sender.world.name + "，请在10秒内输入/delete confirm")
             putNode(name, sender.world.name)
@@ -49,16 +49,9 @@ class DeleteCommand(plugin: MapManagerImpl) : TabExecutor {
             if (node != null) {
                 if (node.time + 10000 < System.currentTimeMillis()) {
                     sender.sendMessage("§c已超过确认时间")
-                    return true
+                    return false
                 }
             }
-            if (node != null) {
-                if (!node.world?.let { world.isExist(it) }!!) {
-                    sender.sendMessage("§c世界" + node.world + "不存在")
-                    return true
-                }
-            }
-
             // Process Command
             lastTime.remove(name)
             sender.sendMessage("§e删除中...")

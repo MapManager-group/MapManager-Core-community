@@ -2,6 +2,7 @@ package work.alsace.mapmanager.common.function
 
 import net.luckperms.api.model.user.User
 import org.bukkit.*
+import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitRunnable
 import org.mvplugins.multiverse.core.world.MultiverseWorld
 import org.mvplugins.multiverse.core.world.WorldManager
@@ -247,10 +248,10 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功移除，返回true；否则返回false。
      */
     override fun removeWorld(world: String): Boolean {
-        return mv?.getWorld(world)?.peek { world ->
-            mv.deleteWorld(DeleteWorldOptions.world(world).keepFiles(listOf("paper-world.yml")))
+        return mv?.getWorld(world)?.peek { w ->
+            mv.deleteWorld(DeleteWorldOptions.world(w))
                 ?.onFailure { reason -> plugin.logger.warning("$reason") }
-                ?.onSuccess { delworld -> plugin.logger.info("地图${delworld}未找到") }
+                ?.onSuccess { delworld -> plugin.logger.info("地图${delworld}已移除") }
         }?.map { true }?.getOrElse(false)
             ?: false
 //        return mv?.deleteWorld(world, true, true) == true
@@ -302,7 +303,8 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功导入，返回true；否则返回false。
      */
     override fun importWorld(name: String, alias: String, color: String, generate: MMWorldType): Boolean {
-        val file = File(plugin.server.worldContainer, name)
+        val defaultWorld = plugin.server.worlds[0].name
+        val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
         if (!file.exists()) {
             plugin.logger.warning("§c未找到世界文件$name")
             return false
@@ -323,8 +325,9 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         }
         try {
             var success = false
+            val key = NamespacedKey("minecraft", name)
             mv?.importWorld(
-                ImportWorldOptions.worldName(name)
+                ImportWorldOptions.worldKey(key)
                     .environment(gene)
                     .doFolderCheck(true)
             )
@@ -360,50 +363,58 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功创建，返回true；否则返回false。
      */
     override fun createWorld(name: String, alias: String, color: String, generate: MMWorldType): Boolean {
-        val file = File(plugin.server.worldContainer, name)
+        val defaultWorld = plugin.server.worlds[0].name
+        val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
         if (file.exists()) {
             plugin.logger.warning("§c世界" + name + "已经存在")
             return false
         }
+        val key = NamespacedKey("minecraft", name)
+        plugin.logger.warning(key.toString())
         when (generate) {
             MMWorldType.VOID -> {
-                mv?.createWorld(CreateWorldOptions.worldName(name)
+                mv?.createWorld(CreateWorldOptions.worldKey(key)
                     .generator("VoidGen:{}")
                     .worldType(WorldType.FLAT)
                     .environment(World.Environment.NORMAL)
                     .doFolderCheck(true)
+                    .generateStructures(false)
                 )
             }
 
             MMWorldType.NORMAL -> {
-                mv?.createWorld(CreateWorldOptions.worldName(name)
+                mv?.createWorld(CreateWorldOptions.worldKey(key)
                     .worldType(WorldType.NORMAL)
                     .environment(World.Environment.NORMAL)
                     .doFolderCheck(true)
+                    .generateStructures(false)
                 )
             }
 
             MMWorldType.NETHER -> {
-                mv?.createWorld(CreateWorldOptions.worldName(name)
+                mv?.createWorld(CreateWorldOptions.worldKey(key)
                     .worldType(WorldType.FLAT)
                     .environment(World.Environment.NETHER)
                     .doFolderCheck(true)
+                    .generateStructures(false)
                 )
             }
 
             MMWorldType.END -> {
-                mv?.createWorld(CreateWorldOptions.worldName(name)
+                mv?.createWorld(CreateWorldOptions.worldKey(key)
                     .worldType(WorldType.FLAT)
                     .environment(World.Environment.THE_END)
                     .doFolderCheck(true)
+                    .generateStructures(false)
                 )
             }
 
             else -> {
-                mv?.createWorld(CreateWorldOptions.worldName(name)
+                mv?.createWorld(CreateWorldOptions.worldKey(key)
                     .worldType(WorldType.FLAT)
                     .environment(World.Environment.NORMAL)
                     .doFolderCheck(true)
+                    .generateStructures(false)
                 )
             }
         }
@@ -425,7 +436,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
 //        world?.setAllowAnimalSpawn(false)
 
         if(mv == null) return
-        val w = Bukkit.getWorld(mv.getLoadedWorld(world).get().name)
+        val w = world?.let { Bukkit.getWorld(it.name) }
         w?.setGameRule(GameRule.RANDOM_TICK_SPEED, 0)
         w?.setGameRule(GameRule.DO_FIRE_TICK, false)
         w?.setGameRule(GameRule.DO_WEATHER_CYCLE, false)

@@ -575,11 +575,11 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                         val loadedWorld = worldManager.getWorld(name).get()
                         sender.sendMessage("§a世界加载完毕")
                         sender.sendMessage("§e正在传送...")
-                        plugin.coreApi?.safetyTeleporter to loadedWorld.spawnLocation
+                        sender.teleport(loadedWorld.spawnLocation)
                     } else {
                         sender.sendMessage("§e正在传送...")
                         val loadedWorld = worldManager.getWorld(name).get()
-                        plugin.coreApi?.safetyTeleporter to loadedWorld.spawnLocation
+                        sender.teleport(loadedWorld.spawnLocation)
                     }
                 }
 //                if (!sender.hasPermission("multiverse.access.$name")) {

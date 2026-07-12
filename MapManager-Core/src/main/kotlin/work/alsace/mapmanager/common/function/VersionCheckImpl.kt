@@ -17,15 +17,17 @@ class VersionCheckImpl(private val plugin: MapManagerImpl) : VersionCheck {
      * @return true为合法，false不合法
      */
     override fun isMapVersionCorrect(world: String): Boolean {
-        val worldDir = File(plugin.server.worldContainer, world)
-        if (checker.isValidWorldName(world)) {
-            plugin.logger.info("§cworld" + "名称不合法")
-            return false
-        }
-        if (checker.isValidWorldFolder(worldDir)) {
+        val defaultWorld = plugin.server.worlds[0].name
+        val worldDir = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$world")
+        if (!checker.isValidWorldFolder(worldDir)) {
             plugin.logger.info("§c" + worldDir + "路径不合法")
             return false
         }
+        if (!checker.isValidWorldName(world)) {
+            plugin.logger.info("§cworld" + "名称不合法")
+            return false
+        }
+        plugin.logger.warning("合法")
         return true
     }
 

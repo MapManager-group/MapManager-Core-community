@@ -15,6 +15,7 @@ import work.alsace.mapmanager.common.listener.BlockListener
 import work.alsace.mapmanager.common.listener.PlayerListener
 import work.alsace.mapmanager.common.log.Log4JFilter
 import work.alsace.mapmanager.common.version.VersionBridge
+import work.alsace.mapmanager.enums.MMWorldType
 import work.alsace.mapmanager.service.DynamicWorld
 import work.alsace.mapmanager.service.MainYaml
 import work.alsace.mapmanager.service.MapAgent
@@ -67,6 +68,12 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         setVersionCheck(VersionCheckImpl(this))
         server.pluginManager.registerEvents(BlockListener(this), this)
         server.pluginManager.registerEvents(PlayerListener(this), this)
+
+        val defaultWorld = server.worlds[0].name
+//        val file = File(server.worldContainer, "$defaultWorld/dimensions/mapmanager-core")
+//        if (!file.exists()) {
+//            file.mkdir()
+//        }
         server.consoleSender.sendMessage("[§6MapManager§7] §f加载成功！")
         instance = this
     }
