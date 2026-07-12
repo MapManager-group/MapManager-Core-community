@@ -23,7 +23,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
     implementation("com.github.Querz:NBT:6.1")
 
-    compileOnly("com.onarandombox.multiversecore:Multiverse-Core:4.3.0")
+    compileOnly("org.mvpluginsmultiverse.core:multiverse-core:5.7.0")
     compileOnly("net.luckperms:api:5.3")
     compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
 }

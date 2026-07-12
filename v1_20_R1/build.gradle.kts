@@ -12,7 +12,7 @@ plugins {
 dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    compileOnly("com.onarandombox.multiversecore:Multiverse-Core:4.3.1")
+    compileOnly("org.mvpluginsmultiverse.core:multiverse-core:5.7.0")
     compileOnly("net.luckperms:api:5.3")
     compileOnly("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
     implementation(project(":MapManager-API"))
