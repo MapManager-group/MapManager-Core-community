@@ -316,9 +316,17 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功导入，返回true；否则返回false。
      */
     override fun importWorld(name: String, alias: String, color: String, generate: MMWorldType): Boolean {
+        //确认根目录下有要导入的文件
         val file = File(plugin.server.worldContainer, name)
         if (!file.exists()) {
             plugin.logger.warning("§c未找到世界文件$name")
+            return false
+        }
+        //确认dimension目录下没有同名地图
+        val defaultWorld = plugin.server.worlds[0].name
+        val dimensionsFile = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
+        if (dimensionsFile.exists()) {
+            plugin.logger.warning("§c世界" + name + "已经存在")
             return false
         }
         val versionCheck = plugin.getVersionCheck()
@@ -387,8 +395,9 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             plugin.logger.info("已自动转换为符合规范的小写名称: '$safeName'")
         }
         val defaultWorld = plugin.server.worlds[0].name
-        val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$safeName")
-        if (file.exists()) {
+        val dimensionsFile = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$safeName")
+        val rootFile = File(plugin.server.worldContainer, safeName)
+        if (dimensionsFile.exists() || rootFile.exists()) {
             plugin.logger.warning("§c世界" + safeName + "已经存在")
             return false
         }
@@ -445,11 +454,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                 )
             }
         }
-        val world = getMVWorld(safeName)
-        if (world == null) {
-            plugin.logger.warning("§c获取" + safeName + "信息失败")
-            return false
-        }
+        val world = getMVWorld(safeName) ?: return false
         initWorld(world, alias)
         return true
     }
