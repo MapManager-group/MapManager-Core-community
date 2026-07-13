@@ -260,15 +260,19 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * 获取可能存在的世界名称集合。
      * @return 包含所有潜在世界名称的集合。
      */
-    override fun getPotentialWorlds(): MutableCollection<String?>? {
-        val dimensionDir = File(plugin.server.worldContainer, "${plugin.server.worlds[0].name}/dimensions/minecraft")
+    override fun getPotentialWorlds(): MutableCollection<String?> {
+        val worldDir = File(plugin.server.worldContainer, "")
+        if (!worldDir.exists()) return mutableListOf()
         val managedWorldNames = mv?.worlds?.map { it.name }?.toSet() ?: return mutableListOf()
-        if (!dimensionDir.exists() || !dimensionDir.isDirectory) {
-            return mutableListOf()
-        }
-        val fileNames = dimensionDir.listFiles()
+        val systemFolders = setOf(
+            "plugins", "logs", "config", "cache", "libraries", "versions",
+            "crash-reports"
+        )
+        val fileNames = worldDir.listFiles()
             ?.filter { it.isDirectory }
             ?.filter { !managedWorldNames.contains(it.name) }
+            ?.filter { !systemFolders.contains(it.name) }
+            ?.filter { File(it, "level.dat").exists() }
             ?.map { it.name }
             ?.toMutableList()
         return fileNames ?: mutableListOf()
@@ -312,21 +316,13 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功导入，返回true；否则返回false。
      */
     override fun importWorld(name: String, alias: String, color: String, generate: MMWorldType): Boolean {
-        val safeName = name.lowercase(Locale.getDefault())
-
-        if (name != safeName) {
-            plugin.logger.warning("检测到地图名称包含大写字母: '$name'")
-            plugin.logger.warning("已自动转换为符合规范的小写名称: '$safeName'")
-        }
-        val defaultWorld = plugin.server.worlds[0].name
-        val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
+        val file = File(plugin.server.worldContainer, name)
         if (!file.exists()) {
             plugin.logger.warning("§c未找到世界文件$name")
             return false
         }
         val versionCheck = plugin.getVersionCheck()
-        if (!versionCheck.isMapVersionCorrect(safeName)) {
-            plugin.logger.info("地图版本过高")
+        if (!versionCheck.isMapVersionCorrect(name)) {
             return false
         }
         var gene = World.Environment.NORMAL
@@ -339,9 +335,9 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         }
         try {
             var success = false
-            val key = NamespacedKey("minecraft", safeName)
+//            val key = NamespacedKey("minecraft", safeName)
             mv?.importWorld(
-                ImportWorldOptions.worldKey(key)
+                ImportWorldOptions.worldName(name)
                     .environment(gene)
                     .doFolderCheck(true)
             )
@@ -362,10 +358,15 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             plugin.logger.warning("§c导入地图异常")
             return false
         }
-        val world = getMVWorld(safeName)
+        val world = getMVWorld(name)
         if (world == null) {
-            plugin.logger.warning("§c获取" + safeName + "信息失败")
+            plugin.logger.warning("§c获取" + name + "信息失败")
             return false
+        }
+        val safeName = name.lowercase(Locale.getDefault())
+
+        if (name != safeName) {
+            plugin.logger.info("已自动转换为符合规范的小写名称: '$safeName'")
         }
         initWorld(world, alias)
         return true
@@ -383,61 +384,64 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         val safeName = name.lowercase(Locale.getDefault())
 
         if (name != safeName) {
-            plugin.logger.warning("检测到地图名称包含大写字母: '$name'")
-            plugin.logger.warning("已自动转换为符合规范的小写名称: '$safeName'")
+            plugin.logger.info("已自动转换为符合规范的小写名称: '$safeName'")
         }
         val defaultWorld = plugin.server.worlds[0].name
-        val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
+        val file = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$safeName")
         if (file.exists()) {
-            plugin.logger.warning("§c世界" + name + "已经存在")
+            plugin.logger.warning("§c世界" + safeName + "已经存在")
             return false
         }
         val key = NamespacedKey("minecraft", safeName)
-        plugin.logger.warning(key.toString())
         when (generate) {
             MMWorldType.VOID -> {
-                mv?.createWorld(CreateWorldOptions.worldKey(key)
-                    .generator("VoidGen:{}")
-                    .worldType(WorldType.FLAT)
-                    .environment(World.Environment.NORMAL)
-                    .doFolderCheck(true)
-                    .generateStructures(false)
+                mv?.createWorld(
+                    CreateWorldOptions.worldKey(key)
+                        .generator("VoidGen:{}")
+                        .worldType(WorldType.FLAT)
+                        .environment(World.Environment.NORMAL)
+                        .doFolderCheck(true)
+                        .generateStructures(false)
                 )
             }
 
             MMWorldType.NORMAL -> {
-                mv?.createWorld(CreateWorldOptions.worldKey(key)
-                    .worldType(WorldType.NORMAL)
-                    .environment(World.Environment.NORMAL)
-                    .doFolderCheck(true)
-                    .generateStructures(false)
+                mv?.createWorld(
+                    CreateWorldOptions.worldKey(key)
+                        .worldType(WorldType.NORMAL)
+                        .environment(World.Environment.NORMAL)
+                        .doFolderCheck(true)
+                        .generateStructures(false)
                 )
             }
 
             MMWorldType.NETHER -> {
-                mv?.createWorld(CreateWorldOptions.worldKey(key)
-                    .worldType(WorldType.FLAT)
-                    .environment(World.Environment.NETHER)
-                    .doFolderCheck(true)
-                    .generateStructures(false)
+                mv?.createWorld(
+                    CreateWorldOptions.worldKey(key)
+                        .worldType(WorldType.FLAT)
+                        .environment(World.Environment.NETHER)
+                        .doFolderCheck(true)
+                        .generateStructures(false)
                 )
             }
 
             MMWorldType.END -> {
-                mv?.createWorld(CreateWorldOptions.worldKey(key)
-                    .worldType(WorldType.FLAT)
-                    .environment(World.Environment.THE_END)
-                    .doFolderCheck(true)
-                    .generateStructures(false)
+                mv?.createWorld(
+                    CreateWorldOptions.worldKey(key)
+                        .worldType(WorldType.FLAT)
+                        .environment(World.Environment.THE_END)
+                        .doFolderCheck(true)
+                        .generateStructures(false)
                 )
             }
 
             else -> {
-                mv?.createWorld(CreateWorldOptions.worldKey(key)
-                    .worldType(WorldType.FLAT)
-                    .environment(World.Environment.NORMAL)
-                    .doFolderCheck(true)
-                    .generateStructures(false)
+                mv?.createWorld(
+                    CreateWorldOptions.worldKey(key)
+                        .worldType(WorldType.FLAT)
+                        .environment(World.Environment.NORMAL)
+                        .doFolderCheck(true)
+                        .generateStructures(false)
                 )
             }
         }
@@ -456,9 +460,10 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         world?.isAutoLoad = true
         world?.isKeepSpawnInMemory = false
         world?.gameMode = GameMode.CREATIVE
+        plugin.logger.info(world?.gameMode?.name)
 //        world?.setAllowAnimalSpawn(false)
 
-        if(mv == null) return
+        if (mv == null) return
         val w = world?.let { Bukkit.getWorld(it.name) }
         w?.setGameRule(GameRule.RANDOM_TICK_SPEED, 0)
         w?.setGameRule(GameRule.DO_FIRE_TICK, false)

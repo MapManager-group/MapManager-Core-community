@@ -17,17 +17,8 @@ class VersionCheckImpl(private val plugin: MapManagerImpl) : VersionCheck {
      * @return true为合法，false不合法
      */
     override fun isMapVersionCorrect(world: String): Boolean {
-        val defaultWorld = plugin.server.worlds[0].name
-        val worldDir = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$world")
-        if (!checker.isValidWorldFolder(worldDir)) {
-            plugin.logger.info("§c" + worldDir + "路径不合法")
-            return false
-        }
-        if (!checker.isValidWorldName(world)) {
-            plugin.logger.info("§cworld" + "名称不合法")
-            return false
-        }
-        return true
+        val worldDir = File(plugin.server.worldContainer, world)
+        return isMapVersionCorrect(worldDir)
     }
 
     /**
@@ -36,8 +27,20 @@ class VersionCheckImpl(private val plugin: MapManagerImpl) : VersionCheck {
      * @return true为合法，false不合法
      */
     override fun isMapVersionCorrect(dir: File): Boolean {
+        if (!File(dir, "level.dat").exists()) {
+            plugin.logger.info("${dir}不是有效的地图文件，缺少level.dat")
+            return false
+        }
         if (!checker.isValidWorldFolder(dir)) {
-            plugin.logger.info("§c" + dir + "路径不合法")
+            plugin.logger.info("${dir}不是有效的地图目录")
+            return false
+        }
+        if (!checker.isValidWorldName(dir.name)) {
+            plugin.logger.info("${dir}不是有效的地图名称")
+            return false
+        }
+        if (!isLevelFileVersionCorrect(dir)) {
+            plugin.logger.info("${dir}地图版本不符合导入规范")
             return false
         }
         return true

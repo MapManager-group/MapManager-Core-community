@@ -63,7 +63,7 @@ class ImportCommand(private val plugin: MapManagerImpl) : TabExecutor {
         var owner: String? = null
         var generate: String? = null
         for (arg in args) {
-            when (arg.substring(0, 2)) {
+            when (arg.take(2)) {
                 "n:" -> name = arg.substring(2)
                 "a:" -> alias = arg.substring(2)
                 "c:" -> color = arg.substring(2)
@@ -79,7 +79,7 @@ class ImportCommand(private val plugin: MapManagerImpl) : TabExecutor {
         }
         if (owner == null) owner = sender.name
         if (alias == null) alias = name
-        if (group == null) group = name
+        if (group == null) group = name.lowercase(Locale.getDefault())
         val generateType: MMWorldType = when (generate) {
             "void_gen" -> MMWorldType.VOID
             "normal" -> MMWorldType.NORMAL
