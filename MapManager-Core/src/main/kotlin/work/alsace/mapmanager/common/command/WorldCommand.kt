@@ -561,6 +561,10 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                     return false
                 }
                 val name = args[1].lowercase(Locale.getDefault())
+                if (!sender.hasPermission("multiverse.access.$name")) {
+                    sender.sendMessage("§c你没有权限进入此地图")
+                    return false
+                }
                 val worldManager = dynamicWorld.getMVWorldManager()
 //              获取已加载的世界实例
                 val loadedWorldOption = worldManager?.getLoadedWorld(name)
@@ -586,10 +590,7 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                         sender.teleport(loadedWorld.spawnLocation)
                     }
                 }
-//                if (!sender.hasPermission("multiverse.access.$name")) {
-//                    sender.sendMessage("§c你没有权限进入此地图")
-//                    return false
-//                }
+
 //                var mvworld = dynamicWorld.getLoadedWorld(name)
 //                if (mvworld == null) {
 //                    val correct = dynamicWorld.getCorrectUnloadedName(name)
