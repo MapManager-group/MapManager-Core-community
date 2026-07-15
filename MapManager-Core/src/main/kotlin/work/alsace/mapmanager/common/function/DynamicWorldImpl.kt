@@ -3,13 +3,18 @@ package work.alsace.mapmanager.common.function
 import net.luckperms.api.model.user.User
 import org.bukkit.*
 import org.bukkit.scheduler.BukkitRunnable
+import org.mvplugins.multiverse.core.utils.result.Attempt
+import org.mvplugins.multiverse.core.world.LoadedMultiverseWorld
 import org.mvplugins.multiverse.core.world.MultiverseWorld
 import org.mvplugins.multiverse.core.world.WorldManager
+import org.mvplugins.multiverse.core.world.entity.EntitySpawnConfig
 import org.mvplugins.multiverse.core.world.options.CreateWorldOptions
 import org.mvplugins.multiverse.core.world.options.DeleteWorldOptions
 import org.mvplugins.multiverse.core.world.options.ImportWorldOptions
 import org.mvplugins.multiverse.core.world.options.LoadWorldOptions
 import org.mvplugins.multiverse.core.world.options.UnloadWorldOptions
+import org.mvplugins.multiverse.core.world.reasons.CreateFailureReason
+import org.mvplugins.multiverse.core.world.reasons.ImportFailureReason
 import work.alsace.mapmanager.MapManagerImpl
 import work.alsace.mapmanager.enums.MMWorldType
 import work.alsace.mapmanager.service.DynamicWorld
@@ -319,14 +324,14 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         //确认根目录下有要导入的文件
         val file = File(plugin.server.worldContainer, name)
         if (!file.exists()) {
-            plugin.logger.warning("§c未找到世界文件$name")
+            plugin.logger.warning("未找到世界文件$name")
             return false
         }
         //确认dimension目录下没有同名地图
         val defaultWorld = plugin.server.worlds[0].name
         val dimensionsFile = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
         if (dimensionsFile.exists()) {
-            plugin.logger.warning("§c世界" + name + "已经存在")
+            plugin.logger.warning("世界" + name + "已经存在")
             return false
         }
         val versionCheck = plugin.getVersionCheck()
@@ -341,34 +346,25 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             MMWorldType.END -> gene = World.Environment.THE_END
             MMWorldType.NORMAL -> World.Environment.NORMAL
         }
+        lateinit var importWorld: Attempt<LoadedMultiverseWorld, ImportFailureReason>
         try {
-            var success = false
-//            val key = NamespacedKey("minecraft", safeName)
             mv?.importWorld(
                 ImportWorldOptions.worldName(name)
                     .environment(gene)
                     .doFolderCheck(true)
-            )
-                ?.onFailure { reason ->
-                    plugin.logger.warning("$reason")
-                }
-                ?.onSuccess { world ->
-                    success = true
-                    plugin.logger.info("导入地图${world}成功")
-                }
-            if (!success) return false
-//            if (!mv?.addWorld(name, gene, null, null, null, null, true)!!) {
-//                plugin.logger.warning("§c导入" + name + "时出现错误")
-//                return false
-//            }
+            )?.let { importWorld = it }
+            if (importWorld.isFailure) {
+                plugin.logger.warning(importWorld.failureMessage.toString())
+                return false
+            }
         } catch (e: Exception) {
             e.printStackTrace()
-            plugin.logger.warning("§c导入地图异常")
+            plugin.logger.warning("导入地图异常")
             return false
         }
-        val world = getMVWorld(name)
+        val world = importWorld.get()
         if (world == null) {
-            plugin.logger.warning("§c获取" + name + "信息失败")
+            plugin.logger.warning("导入地图异常")
             return false
         }
         val safeName = name.lowercase(Locale.getDefault())
@@ -398,10 +394,11 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         val dimensionsFile = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$safeName")
         val rootFile = File(plugin.server.worldContainer, safeName)
         if (dimensionsFile.exists() || rootFile.exists()) {
-            plugin.logger.warning("§c世界" + safeName + "已经存在")
+            plugin.logger.warning("世界" + safeName + "已经存在")
             return false
         }
-        val key = NamespacedKey("minecraft", safeName)
+        lateinit var createWorld: Attempt<LoadedMultiverseWorld, CreateFailureReason>
+        val key = NamespacedKey.minecraft(safeName)
         when (generate) {
             MMWorldType.VOID -> {
                 mv?.createWorld(
@@ -411,7 +408,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                         .environment(World.Environment.NORMAL)
                         .doFolderCheck(true)
                         .generateStructures(false)
-                )
+                )?.let { createWorld = it }
             }
 
             MMWorldType.NORMAL -> {
@@ -421,7 +418,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                         .environment(World.Environment.NORMAL)
                         .doFolderCheck(true)
                         .generateStructures(false)
-                )
+                )?.let { createWorld = it }
             }
 
             MMWorldType.NETHER -> {
@@ -431,7 +428,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                         .environment(World.Environment.NETHER)
                         .doFolderCheck(true)
                         .generateStructures(false)
-                )
+                )?.let { createWorld = it }
             }
 
             MMWorldType.END -> {
@@ -441,7 +438,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                         .environment(World.Environment.THE_END)
                         .doFolderCheck(true)
                         .generateStructures(false)
-                )
+                )?.let { createWorld = it }
             }
 
             else -> {
@@ -451,39 +448,36 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                         .environment(World.Environment.NORMAL)
                         .doFolderCheck(true)
                         .generateStructures(false)
-                )
+                )?.let { createWorld = it }
             }
         }
-        val world = getMVWorld(safeName) ?: return false
+        if (createWorld.isFailure) {
+            plugin.logger.warning("创建地图异常")
+            return false
+        }
+        val world = createWorld.get()
         initWorld(world, alias)
         return true
     }
 
-    private fun initWorld(world: MultiverseWorld?, alias: String?) {
-        world?.alias = "&3${alias}"
-        world?.difficulty = Difficulty.PEACEFUL
-        world?.isAutoLoad = true
-        world?.isKeepSpawnInMemory = false
-        world?.gameMode = GameMode.CREATIVE
-        plugin.logger.info(world?.gameMode?.name)
-//        world?.setAllowAnimalSpawn(false)
+    private fun initWorld(world: MultiverseWorld, alias: String) {
+        world.alias = "&3${alias}"
+        world.difficulty = Difficulty.PEACEFUL
+        world.isAutoLoad = true
+        world.isKeepSpawnInMemory = false
+        world.gameMode = GameMode.CREATIVE
 
-        if (mv == null) return
-        val w = world?.let { Bukkit.getWorld(it.name) }
+        val key = NamespacedKey.minecraft(world.name.lowercase(Locale.getDefault()))
+        val w = Bukkit.getWorld(key)
+        if(w == null) plugin.logger.warning("地图初始化失败，无法找到世界${w}")
         w?.setGameRule(GameRule.RANDOM_TICK_SPEED, 0)
         w?.setGameRule(GameRule.DO_FIRE_TICK, false)
         w?.setGameRule(GameRule.DO_WEATHER_CYCLE, false)
         w?.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false)
         w?.setGameRule(GameRule.MOB_GRIEFING, false)
         w?.setGameRule(GameRule.DO_MOB_SPAWNING, false)
-        val name = world?.name
-        name?.let { cancelUnloadTask(it) }
+        val name = world.name
         name?.let { loadAlready(it) }
-//        if (world != null) {
-//            if (w != null) {
-//                if (w.players.isEmpty()) name?.let { unloadWorldLater(it) }
-//            }
-//        }
     }
 
     /**
