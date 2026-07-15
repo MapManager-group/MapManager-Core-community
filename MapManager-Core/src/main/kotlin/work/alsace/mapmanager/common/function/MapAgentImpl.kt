@@ -11,7 +11,6 @@ import net.luckperms.api.node.types.InheritanceNode
 import net.luckperms.api.node.types.PermissionNode
 import net.luckperms.api.node.types.WeightNode
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.OfflinePlayer
 import org.bukkit.World
 import org.bukkit.command.CommandSender
@@ -31,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.ExecutionException
 import java.util.function.Consumer
-import java.util.regex.Pattern
 import java.util.stream.Collectors
 
 /**
@@ -258,7 +256,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
                             }
                         }
                     })
-                }?.thenRun {
+                }.thenRun {
                     gm.deleteGroup(group)
                 }
             groupMap.remove(worldNode.group)

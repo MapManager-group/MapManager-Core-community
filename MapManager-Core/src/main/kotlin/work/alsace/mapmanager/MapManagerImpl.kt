@@ -31,7 +31,7 @@ class MapManagerImpl : JavaPlugin(), MapManager {
     private var luckPerms: LuckPerms? = null
     private var yaml: MainYaml? = null
     private var versionCheck: VersionCheck? = null
-    var coreApi: MultiverseCoreApi? = null
+    lateinit var coreApi: MultiverseCoreApi
     override fun onEnable() {
         server.consoleSender.sendMessage("[§6MapManager§7] §f启动中...")
 
@@ -45,13 +45,9 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         logger.info("正在获取LuckPerms API...")
         (LogManager.getRootLogger() as Logger).addFilter(Log4JFilter())
         luckPerms = Bukkit.getServicesManager().getRegistration(LuckPerms::class.java)?.provider
-//        multiverseCore = Bukkit.getServer().pluginManager.getPlugin("Multiverse-Core") as MultiverseCore?
         val provider = Bukkit.getServicesManager().getRegistration(MultiverseCoreApi::class.java)
         if (provider != null) {
             coreApi = provider.provider
-        }
-        if (coreApi == null) {
-            logger.warning("加载MultiverseCore失败")
         }
         initPermission()
 
@@ -69,11 +65,6 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         server.pluginManager.registerEvents(BlockListener(this), this)
         server.pluginManager.registerEvents(PlayerListener(this), this)
 
-        val defaultWorld = server.worlds[0].name
-//        val file = File(server.worldContainer, "$defaultWorld/dimensions/mapmanager-core")
-//        if (!file.exists()) {
-//            file.mkdir()
-//        }
         server.consoleSender.sendMessage("[§6MapManager§7] §f加载成功！")
         instance = this
     }
@@ -182,7 +173,7 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         return instance
     }
 
-    fun getMVApi(): MultiverseCoreApi? {
+    fun getMVApi(): MultiverseCoreApi {
         return coreApi
     }
 }
