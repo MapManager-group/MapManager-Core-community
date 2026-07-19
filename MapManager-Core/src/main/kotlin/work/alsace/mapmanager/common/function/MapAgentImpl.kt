@@ -206,9 +206,11 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
                 player.sendMessage("§7世界" + world + "正在被删除，您已被传送至出生点")
             }
         }
-        dynamicWorld.getMVWorldManager()?.unloadWorld(UnloadWorldOptions.world(
-            dynamicWorld.getMVWorldManager()?.getLoadedWorld(world)?.get()
-        ))
+        dynamicWorld.getMVWorldManager()?.unloadWorld(
+            UnloadWorldOptions.world(
+                dynamicWorld.getMVWorldManager()?.getLoadedWorld(world)?.get()
+            )
+        )
 //        dynamicWorld.getMVWorldManager()?.unloadWorld(world, true)
         val enter = PermissionNode.builder("multiverse.access." + (world.lowercase(Locale.getDefault()))).build()
         um.searchAll(NodeMatcher.key(enter))
@@ -630,24 +632,19 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
      */
     override fun setWorldAlias(worldName: String, alias: String) {
         val world = dynamicWorld.getMVWorld(worldName)
-        val result = ignoreColor(alias, worldName)
-        world?.alias = result
+        val str = ignoreColor(alias, worldName)
+        if (isPublic(worldName)) {
+            world?.alias = "&2${str}"
+        } else {
+            world?.alias = "&3${str}"
+        }
     }
 
+    /**
+     * 清理字段中的颜色代码
+     */
     override fun ignoreColor(string: String, world: String): String {
-        val str = if (string.length > 2 && string.startsWith("&")) string.substring(2) else string
-        return if(isPublic(world)){
-            "&2${str}"
-        } else {
-            "&3${str}"
-        }
-//        val hexPattern = Pattern.compile("&([A-Fa-f0-9k-oK-O]|R|r)")
-//        val matcher = hexPattern.matcher(string)
-//        val builder = StringBuilder(string.length)
-//        while (matcher.find()) {
-//            matcher.appendReplacement(builder, "&" + color + matcher.group(0)[1])
-//        }
-//        return matcher.appendTail(builder).toString()
+        return string.replace(Regex("&[0-9a-fk-orA-FK-OR]"), "")
     }
 
     /**
