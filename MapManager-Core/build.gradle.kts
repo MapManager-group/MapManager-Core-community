@@ -15,7 +15,6 @@ version = "3.2.2"
 
 dependencies {
     implementation(project(":MapManager-API"))
-    implementation(project(":v1_16_R1"))
     implementation(project(":v1_20_R1"))
 
     implementation("net.kyori:adventure-api:4.14.0")
@@ -25,7 +24,7 @@ dependencies {
 
     compileOnly("org.mvplugins.multiverse.core:multiverse-core:5.7.2")
     compileOnly("net.luckperms:api:5.3")
-    compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
 }
 
 tasks.shadowJar {

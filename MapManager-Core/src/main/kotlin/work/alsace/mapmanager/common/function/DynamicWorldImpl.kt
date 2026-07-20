@@ -2,7 +2,9 @@ package work.alsace.mapmanager.common.function
 
 import net.luckperms.api.model.user.User
 import org.bukkit.*
+import org.bukkit.entity.SpawnCategory
 import org.bukkit.scheduler.BukkitRunnable
+import org.mvplugins.multiverse.core.config.handle.PropertyModifyAction
 import org.mvplugins.multiverse.core.utils.result.Attempt
 import org.mvplugins.multiverse.core.world.LoadedMultiverseWorld
 import org.mvplugins.multiverse.core.world.MultiverseWorld
@@ -454,16 +456,21 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         return true
     }
 
-    private fun initWorld(world: MultiverseWorld, alias: String) {
+    override fun initWorld(world: MultiverseWorld) {
+        initWorld(world, world.name)
+    }
+
+    override fun initWorld(world: MultiverseWorld, alias: String) {
         world.alias = "&3${alias}"
         world.difficulty = Difficulty.PEACEFUL
         world.isAutoLoad = true
         world.isKeepSpawnInMemory = false
         world.gameMode = GameMode.CREATIVE
+        initSpawn(world)
 
         val key = NamespacedKey.minecraft(world.name.lowercase(Locale.getDefault()))
         val w = Bukkit.getWorld(key)
-        if(w == null) {
+        if (w == null) {
             plugin.logger.warning("地图初始化失败，无法找到世界${w}")
             return
         }
@@ -476,6 +483,23 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         val name = world.name
         name?.let { loadAlready(it) }
         mv.saveWorldsConfig()
+    }
+
+    private fun initSpawn(world: MultiverseWorld) {
+        listOf(
+            SpawnCategory.ANIMAL,
+            SpawnCategory.WATER_ANIMAL,
+            SpawnCategory.WATER_AMBIENT,
+            SpawnCategory.MONSTER,
+            SpawnCategory.WATER_UNDERGROUND_CREATURE,
+            SpawnCategory.AMBIENT,
+            SpawnCategory.AXOLOTL,
+            SpawnCategory.MISC
+        ).forEach { category ->
+            world.entitySpawnConfig.getSpawnCategoryConfig(category).apply {
+                stringPropertyHandle.modifyPropertyString("spawn", "false", PropertyModifyAction.SET)
+            }
+        }
     }
 
     /**

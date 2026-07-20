@@ -5,11 +5,10 @@ import org.bukkit.command.CommandSender
 import org.bukkit.command.TabExecutor
 import org.bukkit.entity.Player
 import work.alsace.mapmanager.MapManagerImpl
-import work.alsace.mapmanager.enums.MMWorldType
 import java.util.*
 import java.util.stream.Collectors
 
-class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
+class InitCommand(private val plugin: MapManagerImpl) : TabExecutor {
     private val emptyList: MutableList<String?> = ArrayList(0)
     override fun onTabComplete(
         sender: CommandSender,
@@ -17,7 +16,7 @@ class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
         label: String,
         args: Array<out String>
     ): MutableList<String?>? {
-        if (!sender.hasPermission("mapmanager.command.create")) return emptyList
+        if (!sender.hasPermission("mapmanager.command.init")) return emptyList
         val index = args.size.minus(1)
         return if (index.let { args[it].length } < 2) emptyList else when (args[index].substring(0, 2)) {
             "n:" -> {
@@ -52,47 +51,17 @@ class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
     }
 
     override fun onCommand(sender: CommandSender, cmd: Command, p2: String, args: Array<out String>): Boolean {
-        if (!sender.hasPermission("mapmanager.command.create")) {
+        if (!sender.hasPermission("mapmanager.command.init")) {
             sender.sendMessage("§c你没有权限使用此命令")
             return true
         }
-        var name: String? = null
-        var generate: String? = null
-        var alias: String? = null
-        var color = "darkaqua"
-        var group: String? = null
-        var owner: String? = null
-        for (arg in args) {
-            when (arg.take(2)) {
-                "n:" -> name = arg.substring(2)
-                "e:" -> generate = arg.substring(2)
-                "a:" -> alias = arg.substring(2)
-                "c:" -> color = arg.substring(2)
-                "g:" -> group = arg.substring(2)
-                "o:" -> owner = arg.substring(2)
-                else -> {}
-            }
+        val name = args[0]
+
+        val dynamicWorld = plugin.getDynamicWorld();
+        if (dynamicWorld.isExist(name)) {
+            dynamicWorld.initWorld(dynamicWorld.getMVWorld(name))
         }
-        if (name == null) {
-            sender.sendMessage("§c未指定地图名")
-            return true
-        }
-        if (owner == null) owner = sender.name
-        if (alias == null) alias = name
-        if (group == null) group = name
-        val generateType: MMWorldType = when (generate) {
-            "void_gen" -> MMWorldType.VOID
-            "normal" -> MMWorldType.NORMAL
-            "nether" -> MMWorldType.NETHER
-            "the_end" -> MMWorldType.END
-            else -> MMWorldType.FLAT
-        }
-        if (!plugin.getDynamicWorld().createWorld(name, alias, color, generateType)) {
-            sender.sendMessage("§c地图创建失败，请查看控制台以获取更多信息")
-            return true
-        }
-        plugin.getMapAgent().newWorld(name, owner, group)
-        sender.sendMessage("§a已创建并初始化地图")
+        sender.sendMessage("§a已初始化地图")
         return true
     }
 }

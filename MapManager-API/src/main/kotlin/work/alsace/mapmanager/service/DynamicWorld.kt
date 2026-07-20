@@ -177,4 +177,17 @@ interface DynamicWorld {
      * @return 结果
      */
     fun hasPermission(user: User, permission: String): Boolean
+
+    /**
+     * 初始化地图配置
+     * @param world MultiverseWorld mv世界
+     * @param alias String 别名
+     */
+    fun initWorld(world: MultiverseWorld, alias: String)
+
+    /**
+     * 初始化地图配置
+     * @param world MultiverseWorld mv世界
+     */
+    fun initWorld(world: MultiverseWorld)
 }
