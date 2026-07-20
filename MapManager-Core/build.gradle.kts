@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "work.alsace.mapmanager"
-version = "3.2.1-snapshot"
+version = "3.2.2"
 
 
 dependencies {

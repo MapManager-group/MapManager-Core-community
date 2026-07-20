@@ -133,7 +133,7 @@ interface DynamicWorld {
      * @param world 世界的名称。
      * @return 对应的MultiverseWorld实例，如果未找到则返回null。
      */
-    fun getMVWorld(world: String): MultiverseWorld?
+    fun getMVWorld(world: String): MultiverseWorld
 
     /**
      * 获取服务器默认世界的出生点位置。

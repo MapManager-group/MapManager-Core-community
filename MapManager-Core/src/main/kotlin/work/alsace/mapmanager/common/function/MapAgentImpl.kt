@@ -74,6 +74,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
 
 
     override fun save(): Boolean {
+        dynamicWorld.getMVWorldManager()?.saveWorldsConfig()
         return nodeIO!!.save(nodeMap) && groupIO!!.save(groupMap)
     }
 
@@ -404,11 +405,11 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         lp.data().add(PermissionNode.builder("multiverse.access." + world.lowercase(Locale.getDefault())).build())
         luckPerms.groupManager.saveGroup(lp)
         luckPerms.groupManager.saveGroup(lp)
-        var alias = dynamicWorld.getMVWorld(world)?.alias
+        var alias = dynamicWorld.getMVWorld(world).alias
         if (alias == null) {
             alias = world
         }
-        dynamicWorld.getMVWorld(world)?.alias = "&2${alias}"
+        dynamicWorld.getMVWorld(world).alias = "&2${alias}"
 //        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkgreen") }
         return true
     }
@@ -428,11 +429,11 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         lp.data()
             .remove(PermissionNode.builder("multiverse.access." + world.lowercase(Locale.getDefault())).build())
         luckPerms.groupManager.saveGroup(lp)
-        var alias = dynamicWorld.getMVWorld(world)?.alias
+        var alias = dynamicWorld.getMVWorld(world).alias
         if (alias == null) {
             alias = world
         }
-        dynamicWorld.getMVWorld(world)?.alias = "&3${alias}"
+        dynamicWorld.getMVWorld(world).alias = "&3${alias}"
 //        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkaqua") }
         return true
     }
@@ -622,7 +623,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
      * @return String 别名
      */
     override fun getWorldAlias(worldName: String): String {
-        return dynamicWorld.getMVWorld(worldName)?.alias ?: worldName
+        return dynamicWorld.getMVWorld(worldName).alias ?: worldName
     }
 
     /**
@@ -634,10 +635,11 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         val world = dynamicWorld.getMVWorld(worldName)
         val str = ignoreColor(alias, worldName)
         if (isPublic(worldName)) {
-            world?.alias = "&2${str}"
+            world.alias = "&2${str}"
         } else {
-            world?.alias = "&3${str}"
+            world.alias = "&3${str}"
         }
+        dynamicWorld.getMVWorldManager()?.saveWorldsConfig()
     }
 
     /**

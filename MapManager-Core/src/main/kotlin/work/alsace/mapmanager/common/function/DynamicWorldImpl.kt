@@ -282,8 +282,8 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @param world 世界的名称。
      * @return 对应的MultiverseWorld实例，如果未找到则返回null。
      */
-    override fun getMVWorld(world: String): MultiverseWorld? {
-        return mv.getWorld(world)?.get()
+    override fun getMVWorld(world: String): MultiverseWorld {
+        return mv.getWorld(world).get()
     }
 
     /**
@@ -475,6 +475,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         w.setGameRule(GameRule.DO_MOB_SPAWNING, false)
         val name = world.name
         name?.let { loadAlready(it) }
+        mv.saveWorldsConfig()
     }
 
     /**
