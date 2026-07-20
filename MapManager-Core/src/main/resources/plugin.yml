@@ -36,3 +36,6 @@ commands:
   create:
     usage: /create
     description: Create a new flat world without buildings.
+  init:
+    usage: /init
+    description: Init a loaded world.
