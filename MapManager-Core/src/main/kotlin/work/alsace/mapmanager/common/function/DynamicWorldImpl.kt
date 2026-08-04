@@ -289,12 +289,19 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
     }
 
     /**
+     * 获取世界的出生点位置。
+     * @return 世界的出生点Location实例。
+     */
+    override fun getSpawnLocation(world: String): Location? {
+        return mv.getWorld(world).get()?.spawnLocation ?: mv.defaultWorld?.get()?.spawnLocation
+    }
+
+    /**
      * 获取服务器默认世界的出生点位置。
      * @return 服务器默认世界的出生点Location实例。
      */
-    override fun getSpawnLocation(): Location? {
+    override fun getDefaultSpawnLocation(): Location? {
         return mv.defaultWorld?.get()?.spawnLocation
-//        return mv.spawnWorld?.spawnLocation
     }
 
     /**
@@ -493,8 +500,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             SpawnCategory.MONSTER,
             SpawnCategory.WATER_UNDERGROUND_CREATURE,
             SpawnCategory.AMBIENT,
-            SpawnCategory.AXOLOTL,
-            SpawnCategory.MISC
+            SpawnCategory.AXOLOTL
         ).forEach { category ->
             world.entitySpawnConfig.getSpawnCategoryConfig(category).apply {
                 stringPropertyHandle.modifyPropertyString("spawn", "false", PropertyModifyAction.SET)

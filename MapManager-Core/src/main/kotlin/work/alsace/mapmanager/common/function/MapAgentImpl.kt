@@ -201,7 +201,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         val um = luckPerms.userManager
         val map = world.let { Bukkit.getWorld(it) }
         if (map != null) {
-            val loc = dynamicWorld.getSpawnLocation()
+            val loc = dynamicWorld.getDefaultSpawnLocation()
             for (player in map.players) {
                 loc?.let { player.teleport(it) }
                 player.sendMessage("§7世界" + world + "正在被删除，您已被传送至出生点")

@@ -139,7 +139,13 @@ interface DynamicWorld {
      * 获取服务器默认世界的出生点位置。
      * @return 服务器默认世界的出生点Location实例。
      */
-    fun getSpawnLocation(): Location?
+    fun getDefaultSpawnLocation(): Location?
+
+    /**
+     * 获取某个世界的出生点位置。
+     * @return 某个世界的出生点Location实例，若无，则获取主世界的Location实例。
+     */
+    fun getSpawnLocation(world: String): Location?
 
     /**
      * 导入指定名称的世界。

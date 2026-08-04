@@ -401,7 +401,7 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                     sender.sendMessage("§c玩家" + args[1] + "未在你的世界中")
                     return false
                 }
-                dynamicWorld.getSpawnLocation()?.let { kicked.teleport(it) }
+                dynamicWorld.getDefaultSpawnLocation()?.let { kicked.teleport(it) }
                 kicked.sendMessage("§c你被" + sender.name + "从他的世界中请出")
                 sender.sendMessage("§a已将玩家" + args[1] + "从你的世界中请出")
             }
