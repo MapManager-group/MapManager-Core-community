@@ -14,6 +14,7 @@ import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.World
 import org.bukkit.command.CommandSender
+import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
 import org.mvplugins.multiverse.core.world.options.UnloadWorldOptions
 import work.alsace.mapmanager.MapManagerImpl
@@ -24,6 +25,7 @@ import work.alsace.mapmanager.pojo.WorldNode
 import work.alsace.mapmanager.service.DynamicWorld
 import work.alsace.mapmanager.service.MainYaml
 import work.alsace.mapmanager.service.MapAgent
+import java.io.File
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
@@ -95,23 +97,101 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
     }
 
     /**
-     * 获取玩家的UUID
+     * 获取玩家的 UUID
      * @param player 玩家名称
-     * @return 返回玩家的UUID
+     * @return 返回玩家的 UUID（正版模式下若玩家不存在或网络请求失败则返回 null）
      */
-    override fun getUniqueID(player: String): UUID {
-        return plugin.server.getPlayer(player)?.uniqueId
-            ?: UUID.nameUUIDFromBytes("OfflinePlayer:$player".toByteArray())
+    override fun getUniqueID(player: String): UUID? {
+        // 获取在线玩家uuid
+        val onlinePlayer = plugin.server.getPlayerExact(player)
+        if (onlinePlayer != null) {
+            return onlinePlayer.uniqueId
+        }
+        // 若玩家不在线，从paper获取缓存
+        val profile = plugin.server.createProfile(player)
+        if (profile.completeFromCache() && profile.id != null) {
+            return profile.id
+        }
+        return if (isEffectiveOnlineMode()) {
+//            if (plugin.server.isPrimaryThread) {
+//                plugin.logger.warning(
+//                    "[UUIDManager] 警告: 正在主线程发起网络请求向 Mojang 查询玩家 '$player' 的正版 UUID！网络延迟可能导致主线程卡顿 (Tick Drop)。"
+//                )
+//            }
+            try {
+                // complete(false) 会向 Mojang API 发起 HTTP 请求补全 UUID
+                // 参数 false 表示不请求皮肤材质数据 (Textures)，以提高响应速度
+                if (profile.complete(false) && profile.id != null) {
+                    profile.id
+                } else {
+                    // Mojang 数据库中不存在该正版玩家
+                    null
+                }
+            } catch (e: Exception) {
+                plugin.logger.warning(
+                    "[MapManager] 向 Mojang 查询玩家 '$player' 的正版 UUID 时发生网络异常: ${e.message}"
+                )
+                null
+            }
+        } else {
+            generateOfflineUUID(player)
+        }
+    }
+
+    private fun generateOfflineUUID(playerName: String): UUID {
+        return UUID.nameUUIDFromBytes("OfflinePlayer:$playerName".toByteArray(Charsets.UTF_8))
     }
 
     /**
-     * 通过玩家名获取服务器玩家
-     * @param player 玩家id
-     * @return Player 玩家实体
+     * 判断当前服务器是否处于online模式
+     */
+    fun isEffectiveOnlineMode(): Boolean {
+        // 1. 直连模式下开启了正版验证
+        if (plugin.server.onlineMode) {
+            return true
+        }
+
+        // 2. 检查 Paper 全局配置文件
+        val paperGlobalFile = File(plugin.server.worldContainer, "config/paper-global.yml")
+        if (paperGlobalFile.exists()) {
+            try {
+                val config = YamlConfiguration.loadConfiguration(paperGlobalFile)
+
+                // 检查 Velocity 代理转发 + 正版验证
+                val velocityEnabled = config.getBoolean("proxies.velocity.enabled", false)
+                val velocityOnline = config.getBoolean("proxies.velocity.online-mode", false)
+                if (velocityEnabled && velocityOnline) {
+                    return true
+                }
+
+                // 检查 BungeeCord 代理转发 + 正版验证
+                val bungeeSpigotEnabled = plugin.server.spigot().config.getBoolean("settings.bungeecord", false)
+                val bungeePaperOnline = config.getBoolean("proxies.bungee-cord.online-mode", false)
+                if (bungeeSpigotEnabled && bungeePaperOnline) {
+                    return true
+                }
+            } catch (e: Exception) {
+                plugin.logger.warning(
+                    "读取 config/paper-global.yml 配置文件时出错: ${e.message}"
+                )
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * 通过玩家名获取服务器在线玩家实体
+     * @param player 玩家名称
+     * @return Player? 玩家实体（若玩家不在线或不存在则返回 null）
      */
     override fun getPlayer(player: String): Player? {
-        return plugin.server.getPlayer(getUniqueID(player))
-            ?: plugin.server.getOfflinePlayer(getUniqueID(player)).player
+        val onlinePlayer = plugin.server.getPlayerExact(player)
+        if (onlinePlayer != null) {
+            return onlinePlayer
+        }
+        val uuid = getUniqueID(player) ?: return null
+        return plugin.server.getPlayer(uuid)
     }
 
     override fun isPlayerRegister(player: String): Boolean {
@@ -125,10 +205,25 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         return false
     }
 
-    private fun getProcess(owner: String?): CompletableFuture<User?>? {
-        if (owner == null) return null
-        val uuid = getUniqueID(owner)
-        return luckPerms.userManager.loadUser(uuid)
+    /**
+     * 异步获取 LuckPerms 的 User 对象（彻底防止阻塞主线程）
+     * @param owner 玩家名称
+     * @return CompletableFuture<User?>
+     */
+    private fun getProcess(owner: String?): CompletableFuture<User?> {
+        if (owner == null) {
+            return CompletableFuture.completedFuture(null)
+        }
+
+        return CompletableFuture.supplyAsync {
+            getUniqueID(owner)
+        }.thenCompose { uuid ->
+            if (uuid == null) {
+                CompletableFuture.completedFuture(null)
+            } else {
+                luckPerms.userManager.loadUser(uuid)
+            }
+        }
     }
 
     /**
@@ -284,8 +379,9 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
             plugin.logger.warning("§c无法找到" + world + "对应的权限组")
             return false
         }
-        val uuid = getUniqueID(player)
+        val uuid = getUniqueID(player) ?: return false
 
+        plugin.logger.info(uuid.toString())
         val user: User? = try {
             luckPerms.userManager.loadUser(uuid).get()
         } catch (e: ExecutionException) {
@@ -338,42 +434,24 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
             plugin.logger.warning("§c无法找到" + world + "对应的权限组")
             return false
         }
-        var uuid: UUID? = null
-        var name = ""
-        val online = player.let { plugin.server.getPlayer(it) }
-        if (online == null) {
-            for (off in plugin.server.offlinePlayers!!) {
-                if (Objects.requireNonNull<String?>(off.name).equals(player, ignoreCase = true)) {
-                    uuid = off.uniqueId
-                    name = off.name.toString()
-                    break
-                }
-            }
-            if (uuid == null) {
-                plugin.logger.warning("§c玩家" + player + "不存在")
-                return false
-            }
-        } else {
-            uuid = online.uniqueId
-            name = online.name
-        }
+        val uuid = getUniqueID(player) ?: return false
         val user = luckPerms.userManager.loadUser(uuid).join()
         when (group) {
             MapGroup.ADMIN -> {
                 run {
                     user?.data()?.remove(PermissionNode.builder("mapmanager.admin.$worldGroup").build())
-                    removeAdmin(world, name)
+                    removeAdmin(world, player)
                 }
                 run {
                     worldGroup.let { InheritanceNode.builder(it!!).build() }.let { user?.data()?.remove(it) }
-                    removeBuilder(world, name)
+                    removeBuilder(world, player)
                     groupIO?.save(groupMap)
                 }
             }
 
             MapGroup.BUILDER -> {
                 worldGroup.let { InheritanceNode.builder(it!!).build() }.let { user?.data()?.remove(it) }
-                removeBuilder(world, name)
+                removeBuilder(world, player)
                 groupIO?.save(groupMap)
             }
 
@@ -382,7 +460,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
                     ?.remove(
                         PermissionNode.builder("multiverse.access." + world.lowercase(Locale.getDefault())).build()
                     )
-                removeVisitor(world, name)
+                removeVisitor(world, player)
                 nodeIO?.save(nodeMap)
             }
         }
@@ -410,7 +488,6 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
             alias = world
         }
         dynamicWorld.getMVWorld(world).alias = "&2${alias}"
-//        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkgreen") }
         return true
     }
 
@@ -434,7 +511,6 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
             alias = world
         }
         dynamicWorld.getMVWorld(world).alias = "&3${alias}"
-//        world.let { dynamicWorld.getMVWorld(it)?.setColor("darkaqua") }
         return true
     }
 
