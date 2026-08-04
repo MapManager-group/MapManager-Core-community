@@ -1,7 +1,7 @@
 name: MapManager-Core
 main: work.alsace.mapmanager.MapManagerImpl
 
-version: 3.2.0-snapshot
+version: 3.3.0-snapshot
 
 depend:
   - LuckPerms

@@ -29,9 +29,11 @@ class InitCommand(private val plugin: MapManagerImpl) : TabExecutor {
 
         val dynamicWorld = plugin.getDynamicWorld()
         if (dynamicWorld.isExist(name)) {
+            sender.sendMessage("§a已初始化地图")
             dynamicWorld.initWorld(dynamicWorld.getMVWorld(name))
+            return true
         }
-        sender.sendMessage("§a已初始化地图")
-        return true
+        sender.sendMessage("§c地图不存在")
+        return false
     }
 }

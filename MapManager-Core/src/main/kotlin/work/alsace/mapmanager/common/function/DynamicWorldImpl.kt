@@ -506,6 +506,10 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                 stringPropertyHandle.modifyPropertyString("spawn", "false", PropertyModifyAction.SET)
             }
         }
+        world.entitySpawnConfig.getSpawnCategoryConfig(SpawnCategory.MISC).apply {
+            stringPropertyHandle.modifyPropertyString("spawn", "true", PropertyModifyAction.SET)
+        }
+
     }
 
     /**
