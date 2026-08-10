@@ -5,7 +5,7 @@ description = "v1_20_R1"
 
 plugins {
     id("buildlogic.java-conventions")
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm") version "2.3.0"
 
 }
 
@@ -19,6 +19,12 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
+    }
 }

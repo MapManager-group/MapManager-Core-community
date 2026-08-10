@@ -17,7 +17,7 @@ pluginManagement {
     resolutionStrategy {
         eachPlugin {
             if (requested.id.id.startsWith("org.jetbrains.kotlin")) {
-                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.23")
+                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
             }
         }
     }

@@ -5,8 +5,8 @@ description = "MapManager-API"
 
 plugins {
     id("buildlogic.java-conventions")
-    kotlin("jvm") version "1.9.23"
-    id("org.jetbrains.dokka") version "1.9.20"
+    kotlin("jvm") version "2.3.0"
+    id("org.jetbrains.dokka") version "2.0.0"
     id("net.thebugmc.gradle.sonatype-central-portal-publisher") version "1.2.3"
 }
 
@@ -23,8 +23,14 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
+    }
 }
 
 signing {

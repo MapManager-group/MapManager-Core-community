@@ -36,7 +36,7 @@ repositories {
 
 group = "work.alsace.mapmanager"
 version = "3.0"
-java.sourceCompatibility = JavaVersion.VERSION_1_8
+java.sourceCompatibility = JavaVersion.VERSION_25
 
 publishing {
     publications.create<MavenPublication>("maven") {
