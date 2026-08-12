@@ -10,8 +10,8 @@ io-papermc-paper-paper-api = "1.20.1-R0.1-SNAPSHOT"
 net-kyori-adventure-api = "4.14.0"
 net-luckperms-api = "5.3"
 org-apache-logging-log4j-log4j-core = "2.17.1"
-org-jetbrains-kotlin-kotlin-stdlib = "1.9.23"
-org-jetbrains-kotlin-kotlin-stdlib-jdk8 = "1.9.23"
+org-jetbrains-kotlin-kotlin-stdlib = "2.3.0"
+org-jetbrains-kotlin-kotlin-stdlib-jdk8 = "2.3.0"
 
 [libraries]
 com-destroystokyo-paper-paper-api = { module = "com.destroystokyo.paper:paper-api", version.ref = "com-destroystokyo-paper-paper-api" }
