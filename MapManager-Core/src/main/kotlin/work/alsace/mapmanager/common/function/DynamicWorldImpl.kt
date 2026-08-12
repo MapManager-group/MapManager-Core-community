@@ -487,6 +487,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         w.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false)
         w.setGameRule(GameRule.MOB_GRIEFING, false)
         w.setGameRule(GameRule.DO_MOB_SPAWNING, false)
+        w.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS,false)
         val name = world.name
         name?.let { loadAlready(it) }
         mv.saveWorldsConfig()
