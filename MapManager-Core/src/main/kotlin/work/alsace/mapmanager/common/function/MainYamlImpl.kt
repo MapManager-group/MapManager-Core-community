@@ -1,7 +1,8 @@
-package work.alsace.mapmanager.function
+package work.alsace.mapmanager.common.function
 
 import org.bukkit.plugin.Plugin
 import org.yaml.snakeyaml.DumperOptions
+import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.TypeDescription
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.Constructor
@@ -15,7 +16,7 @@ import java.io.FileReader
 import java.io.FileWriter
 import java.io.IOException
 
-class MainYamlV116(plugin: Plugin) : MainYaml {
+class MainYamlImpl(plugin: Plugin) : MainYaml {
     private val yaml: Yaml?
     private val file: File?
 
@@ -23,7 +24,10 @@ class MainYamlV116(plugin: Plugin) : MainYaml {
         val options = DumperOptions()
         options.defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
         options.isPrettyFlow = true
-        val constructor: Constructor = CustomClassLoaderConstructor(MainYamlV116::class.java.classLoader)
+        val constructor: Constructor =
+            CustomClassLoaderConstructor(
+                MainYaml::class.java.classLoader,
+                LoaderOptions())
         val representer = Representer(options)
         val description = TypeDescription(MainConfig::class.java, Tag("!MapManagerConfig"))
         representer.addTypeDescription(description)

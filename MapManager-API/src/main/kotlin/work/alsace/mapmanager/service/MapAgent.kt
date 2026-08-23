@@ -8,6 +8,7 @@ import org.bukkit.entity.Player
 import work.alsace.mapmanager.enums.MapGroup
 import work.alsace.mapmanager.pojo.WorldGroup
 import work.alsace.mapmanager.pojo.WorldNode
+import java.io.File
 import java.util.*
 import java.util.concurrent.CompletableFuture
 
@@ -232,6 +233,19 @@ interface MapAgent {
      * @return 返回玩家的UUID。
      */
     fun getUniqueID(player: String): UUID?
+
+    /**
+     * 获取服务器地图所在父目录
+     * @return 返回服务器地图所在父目录
+     */
+    fun getWorldParentFolder(): File
+
+    /**
+     * 获取地图目录
+     * @param world 地图名称
+     * @return 返回地图目录
+     */
+    fun getWorldFolder(world: String): File
 
     /**
      * 通过玩家名获取服务器在线玩家

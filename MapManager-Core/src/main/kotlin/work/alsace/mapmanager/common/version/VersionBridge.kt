@@ -2,8 +2,8 @@ package work.alsace.mapmanager.common.version
 
 import work.alsace.mapmanager.MapManagerImpl
 import work.alsace.mapmanager.common.function.DynamicWorldImpl
+import work.alsace.mapmanager.common.function.MainYamlImpl
 import work.alsace.mapmanager.common.function.MapAgentImpl
-import work.alsace.mapmanager.function.MainYamlV120
 
 class VersionBridge {
     /**
@@ -16,7 +16,7 @@ class VersionBridge {
         plugin.logger.info("Server version: $version")
         when {
             version >= 3465 -> {
-                plugin.setMainYaml(MainYamlV120(plugin))
+                plugin.setMainYaml(MainYamlImpl(plugin))
                 plugin.setDynamicWorld(DynamicWorldImpl(plugin))
                 plugin.setMapAgent(MapAgentImpl(plugin))
             }

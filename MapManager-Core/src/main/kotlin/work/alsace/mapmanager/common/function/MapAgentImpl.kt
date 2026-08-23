@@ -113,11 +113,6 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
             return profile.id
         }
         return if (isEffectiveOnlineMode()) {
-//            if (plugin.server.isPrimaryThread) {
-//                plugin.logger.warning(
-//                    "[UUIDManager] 警告: 正在主线程发起网络请求向 Mojang 查询玩家 '$player' 的正版 UUID！网络延迟可能导致主线程卡顿 (Tick Drop)。"
-//                )
-//            }
             try {
                 // complete(false) 会向 Mojang API 发起 HTTP 请求补全 UUID
                 // 参数 false 表示不请求皮肤材质数据 (Textures)，以提高响应速度
@@ -137,6 +132,21 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
             generateOfflineUUID(player)
         }
     }
+
+    override fun getWorldParentFolder(): File {
+        val level = plugin.server.worlds[0].name
+        val rootDir = plugin.server.worldContainer
+        val dimensionsDir = File(rootDir, "$level/dimensions/minecraft")
+        if (dimensionsDir.exists() && dimensionsDir.isDirectory) {
+            return dimensionsDir
+        }
+        return rootDir
+    }
+
+    override fun getWorldFolder(world: String): File {
+        return File(getWorldParentFolder(), world)
+    }
+
 
     private fun generateOfflineUUID(playerName: String): UUID {
         return UUID.nameUUIDFromBytes("OfflinePlayer:$playerName".toByteArray(Charsets.UTF_8))

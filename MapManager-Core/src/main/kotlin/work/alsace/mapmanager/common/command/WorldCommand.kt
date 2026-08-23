@@ -427,9 +427,7 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                     return false
                 }
                 val world = dynamicWorld.getMVWorld(sender.world.name)
-                if (world != null) {
-                    mapAgent.setWorldAlias(world.name, args[1])
-                }
+                mapAgent.setWorldAlias(world.name, args[1])
                 sender.sendMessage("§a已将世界名称修改为： ${args.contentToString()}[1]")
             }
 
@@ -494,7 +492,7 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                     sender.sendMessage(
                         "§b当前地图已 "
                                 + (if (dynamicWorld.getMVWorld(sender.world.name)
-                                ?.pvp == true
+                                .pvp
                         ) "开启" else "关闭")
                                 + " PVP"
                     )
@@ -503,13 +501,13 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                 when (getOperation(args[1])) {
                     Operation.ENABLE -> {
                         //set to true
-                        dynamicWorld.getMVWorld(sender.world.name)?.pvp = true
+                        dynamicWorld.getMVWorld(sender.world.name).pvp = true
                         sender.sendMessage("§a已开启PVP")
                     }
 
                     Operation.DISABLE -> {
                         //set to false
-                        dynamicWorld.getMVWorld(sender.world.name)?.pvp = false
+                        dynamicWorld.getMVWorld(sender.world.name).pvp = false
                         sender.sendMessage("§a已关闭PVP")
                     }
 
@@ -518,7 +516,7 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                         sender.sendMessage(
                             "§b当前地图已 "
                                     + (if (dynamicWorld.getMVWorld(sender.world.name)
-                                    ?.pvp == true
+                                        .pvp
                             ) "开启" else "关闭")
                                     + " PVP"
                         )
@@ -629,10 +627,7 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
     }
 
     private fun hasPermission(player: Player?): Boolean {
-        if (player != null) {
-            return player.hasPermission("mapmanager.admin." + mapAgent.getWorldGroupName(player.world.name))
-        }
-        return false
+        return player != null && player.hasPermission("mapmanager.admin." + mapAgent.getWorldGroupName(player.world.name))
     }
 
     private fun notEnough(n: Int): Boolean {

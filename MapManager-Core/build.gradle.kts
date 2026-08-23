@@ -10,12 +10,11 @@ plugins {
 }
 
 group = "work.alsace.mapmanager"
-version = "3.3.0"
+version = "3.3.1"
 
 
 dependencies {
     implementation(project(":MapManager-API"))
-    implementation(project(":v1_20_R1"))
 
     implementation("net.kyori:adventure-api:4.14.0")
     implementation("org.apache.logging.log4j:log4j-core:2.17.1")
