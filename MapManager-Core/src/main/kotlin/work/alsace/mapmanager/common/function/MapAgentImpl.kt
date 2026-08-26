@@ -1,6 +1,8 @@
 package work.alsace.mapmanager.common.function
 
 import com.google.gson.reflect.TypeToken
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.luckperms.api.LuckPerms
 import net.luckperms.api.context.DefaultContextKeys
 import net.luckperms.api.model.group.Group
@@ -244,34 +246,52 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
      * @param group 权限组名称。
      */
     override fun newWorld(world: String, owner: String, group: String): CompletableFuture<Void> {
-        val worldLowerCase = world.lowercase(Locale.getDefault())
-        val groupLowerCase = group.lowercase(Locale.getDefault())
-        val manager = luckPerms.groupManager
-        return manager.createAndLoadGroup(groupLowerCase).thenApplyAsync { lp: Group ->
-            val data = lp.data()
-            data.add(PermissionNode.builder("multiverse.access.$worldLowerCase").build())
-            data.add(InheritanceNode.builder("default").build())
-            data.add(
-                InheritanceNode.builder("worldbase").withContext(DefaultContextKeys.WORLD_KEY, worldLowerCase).build()
-            )
-            data.add(InheritanceNode.builder("apply").build())
-            data.add(WeightNode.builder(1).build())
-            manager.saveGroup(lp)
-            plugin.logger.info("权限组" + lp.name + "已创建并初始化完毕")
-            lp
-        }.thenAcceptBoth<User>(
-            getProcess(owner)
-        ) { lp: Group, user: User ->
-            user.data().add(PermissionNode.builder("mapmanager.admin.$groupLowerCase").build())
-            user.data().add(InheritanceNode.builder(lp).build())
-            luckPerms.userManager.saveUser(user)
-            plugin.logger.info("已将" + user.username + "添加至" + groupLowerCase + "权限组")
-        }.thenRun {
-            nodeMap[world] = WorldNode(groupLowerCase)
-            if (groupMap.containsKey(groupLowerCase)) getWorldGroupByName(groupLowerCase)?.addWorld(world) else {
-                groupMap[groupLowerCase] =
-                    WorldGroup(world, owner)
+        val worldLowerCase = world.lowercase(Locale.ROOT)
+        val groupLowerCase = group.lowercase(Locale.ROOT)
+        val gm = luckPerms.groupManager
+        val um = luckPerms.userManager
+
+        // 创建/加载 Group 和 获取/加载 User
+        val groupFuture: CompletableFuture<Group> = gm.createAndLoadGroup(groupLowerCase).thenApply { lp ->
+            lp.data().apply {
+                add(PermissionNode.builder("multiverse.access.$worldLowerCase").build())
+                add(InheritanceNode.builder("default").build())
+                add(
+                    InheritanceNode.builder("worldbase").withContext(DefaultContextKeys.WORLD_KEY, worldLowerCase)
+                        .build()
+                )
+                add(InheritanceNode.builder("apply").build())
+                add(WeightNode.builder(1).build())
             }
+            plugin.logger.info("权限组 ${lp.name} 已创建并初始化完毕")
+            lp
+        }
+
+        val userFuture: CompletableFuture<User?> = getProcess(owner)
+
+        return groupFuture.thenCombine(userFuture) { lp, user ->
+            user?.data()?.add(PermissionNode.builder("mapmanager.admin.$groupLowerCase").build())
+            user?.data()?.add(InheritanceNode.builder(lp).build())
+            plugin.logger.info("已将 ${user?.username ?: owner} 添加至 $groupLowerCase 权限组")
+
+            Pair(lp, user)
+        }.thenCompose { (lp, user) ->
+            // 异步平滑组合：等待 LuckPerms 的保存真正落盘完成
+            CompletableFuture.allOf(
+                gm.saveGroup(lp),
+                user?.let { um.saveUser(it) }
+            )
+        }.thenRun {
+            // 落盘完成后更新本地缓存与保存配置
+            nodeMap[world] = WorldNode(groupLowerCase)
+
+            val worldGroup = groupMap[groupLowerCase]
+            if (worldGroup != null) {
+                worldGroup.addWorld(world)
+            } else {
+                groupMap[groupLowerCase] = WorldGroup(world, owner)
+            }
+
             save()
         }
     }
@@ -300,79 +320,110 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
      * @return 如果成功删除，返回true；否则返回false。
      */
     override fun deleteWorld(world: String): Boolean {
+        val lowerWorld = world.lowercase(Locale.ROOT)
         val worldNode = getWorldNode(world)
         val groupNode = getWorldGroup(world)
         val gm = luckPerms.groupManager
         val um = luckPerms.userManager
-        val map = world.let { Bukkit.getWorld(it) }
-        if (map != null) {
-            val loc = dynamicWorld.getDefaultSpawnLocation()
-            for (player in map.players) {
-                loc?.let { player.teleport(it) }
-                player.sendMessage("§7世界" + world + "正在被删除，您已被传送至出生点")
+
+        // 踢出玩家
+        Bukkit.getWorld(world)?.let { bukkitWorld ->
+            val spawnLoc = dynamicWorld.getDefaultSpawnLocation()
+            val notice = Component.text("世界 $world 正在被删除，您已被传送至出生点", NamedTextColor.GRAY)
+
+            for (player in bukkitWorld.players) {
+                spawnLoc?.let { player.teleport(it) }
+                player.sendMessage(notice)
             }
         }
+
+        // 地图卸载逻辑
         dynamicWorld.getMVWorldManager()?.unloadWorld(
             UnloadWorldOptions.world(
                 dynamicWorld.getMVWorldManager()?.getLoadedWorld(world)?.get()
             )
         )
-//        dynamicWorld.getMVWorldManager()?.unloadWorld(world, true)
-        val enter = PermissionNode.builder("multiverse.access." + (world.lowercase(Locale.getDefault()))).build()
-        um.searchAll(NodeMatcher.key(enter))
-            .thenAcceptAsync { result: MutableMap<UUID?, MutableCollection<PermissionNode?>?>? ->
-                result?.keys?.forEach(Consumer { uuid: UUID? ->
-                    uuid?.let {
-                        um.loadUser(it).thenAccept { user: User? ->
-                            user?.data()?.remove(enter)
-                            user?.let { it1 -> um.saveUser(it1) }
-                        }
-                    }
-                })
+
+        // 构造 access 权限节点
+        val enterNode = PermissionNode.builder("multiverse.access.$lowerWorld").build()
+        // 构造 admin 权限节点
+        val adminNode = PermissionNode.builder("mapmanager.admin.$lowerWorld").build()
+
+        // 清理 default 权限组中的 multiverse.access.$lowerWorld 权限
+        val defaultGroupSaveFuture = gm.getGroup("default")?.let { defaultGroup ->
+            defaultGroup.data().remove(enterNode)
+            gm.saveGroup(defaultGroup)
+        } ?: CompletableFuture.completedFuture(null)
+
+        // 异步清除散落在用户身上的 access 节点
+        val userAccessCleanup = um.searchAll(NodeMatcher.key(enterNode)).thenCompose { result ->
+            val futures = result.keys.filterNotNull().map { uuid ->
+                um.modifyUser(uuid) { user ->
+//                    user.data().remove(enterNode)
+                    user.data().remove(adminNode)
+                }
             }
+            CompletableFuture.allOf(*futures.toTypedArray())
+        }
+
+        // 清理权限
+        val combinedCleanup = CompletableFuture.allOf(defaultGroupSaveFuture, userAccessCleanup)
+
+        // 本地缓存同步清除
         nodeMap.remove(world)
         groupNode?.removeWorld(world)
-        val group = worldNode?.group?.let { gm.getGroup(it) }
+
+        val groupName = worldNode?.group
+        val group = groupName?.let { gm.getGroup(it) }
+
         if (group == null || group.name == "__nil") {
             if (worldNode != null) {
-                plugin.logger.info("§c权限组" + worldNode.group + "未找到")
+                plugin.logger.warning("权限组 $groupName 未找到")
             }
-            nodeIO?.save(nodeMap)
-            groupIO?.save(groupMap)
-            dynamicWorld.cancelUnloadTask(world)
+            saveConfigAndCancelTask(world)
             return dynamicWorld.removeWorld(world)
         }
-        group.data().remove(enter)
-        world.let {
-            InheritanceNode.builder("worldbase")
-                .withContext(DefaultContextKeys.WORLD_KEY, it.lowercase(Locale.getDefault())).build()
-        }.let {
-            group.data().remove(
-                it
-            )
-        }
+
+        // 清理地图group中的节点
+        group.data().remove(enterNode)
+        val worldBaseNode = InheritanceNode.builder("worldbase")
+            .withContext(DefaultContextKeys.WORLD_KEY, lowerWorld)
+            .build()
+        group.data().remove(worldBaseNode)
         gm.saveGroup(group)
+
+        // 判断并清理继承该group的所有用户节点，随后完全销毁
         if (checkGroup(group)) {
-            val node = InheritanceNode.builder(group).build()
-            um.searchAll(NodeMatcher.key(node))
-                .thenAcceptAsync { result: MutableMap<UUID?, MutableCollection<InheritanceNode?>?>? ->
-                    result?.keys?.forEach(Consumer { uuid: UUID? ->
-                        uuid?.let {
-                            um.loadUser(it).thenAccept { user: User? ->
-                                user?.data()?.remove(node)
-                                user?.let { it1 -> um.saveUser(it1) }
-                            }
-                        }
-                    })
-                }.thenRun {
-                    gm.deleteGroup(group)
+            val groupInheritanceNode = InheritanceNode.builder(group).build()
+
+            combinedCleanup.thenCompose {
+                // 搜索所有继承了此 Group 的玩家
+                um.searchAll(NodeMatcher.key(groupInheritanceNode))
+            }.thenCompose { result ->
+                // 批量移除继承节点并保存
+                val futures = result.keys.filterNotNull().map { uuid ->
+                    um.modifyUser(uuid) { user ->
+                        user.data().remove(groupInheritanceNode)
+                    }
                 }
-            groupMap.remove(worldNode.group)
+                CompletableFuture.allOf(*futures.toTypedArray())
+            }.thenAccept {
+                // 确保所有 User 及 Default 组修改落盘完成后，再删除 Group
+                gm.deleteGroup(group)
+                groupMap.remove(groupName)
+                saveConfigAndCancelTask(world)
+            }
+        } else {
+            saveConfigAndCancelTask(world)
         }
+
+        return dynamicWorld.removeWorld(world)
+    }
+
+    private fun saveConfigAndCancelTask(world: String) {
         nodeIO?.save(nodeMap)
         groupIO?.save(groupMap)
         dynamicWorld.cancelUnloadTask(world)
-        return dynamicWorld.removeWorld(world)
     }
 
     /**
@@ -620,83 +671,67 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         val nodeMapBackup: ConcurrentMap<String, WorldNode?> = ConcurrentHashMap(nodeMap)
         val groupMapBackup: ConcurrentMap<String, WorldGroup?> = ConcurrentHashMap(groupMap)
 
-        plugin.logger.info("§e正在与LuckPerms同步数据...")
-        sender.sendMessage("§e正在与LuckPerms同步数据...")
+        plugin.logger.info("正在与 LuckPerms 同步数据...")
+        sender.sendMessage(Component.text("正在与 LuckPerms 同步数据...", NamedTextColor.YELLOW))
+
+        // 重建groupMap的映射关系
         groupMap.clear()
-
-        plugin.logger.info("§e开始同步参观人员数据")
-        val visitorTask = CompletableFuture.runAsync {
-            plugin.logger.info("§e开始同步参观人员数据")
-        }
         for ((key, value) in nodeMap) {
-            value?.let { putWorldGroup(it.group, key!!) }
-            visitorTask.thenRun {
-                getPlayers(
-                    key!!,
-                    MapGroup.VISITOR
-                ).thenAccept { players ->
-                    value?.visitors = players
-                }.join()
-            }
-        }
-        visitorTask.whenComplete { _: Void, _: Throwable ->
-            plugin.logger.info("§a参观人员数据同步完成")
+            value?.let { putWorldGroup(it.group, key) }
         }
 
-        var adminTask = CompletableFuture.runAsync {
-            plugin.logger.info("§e开始同步管理员数据")
-        }
-        var builderTask = CompletableFuture.runAsync {
-            plugin.logger.info("§e开始同步建筑人员数据")
-        }
-        for ((key, value) in groupMap) {
-            adminTask = adminTask.thenRun {
-                getPlayers(
-                    key!!,
-                    MapGroup.ADMIN
-                ).thenAccept { players ->
-                    value?.admins = players
-                }.join()
+        // 并行构建 Visitor 数据的查询 Futures
+        plugin.logger.info("开始同步参观人员数据...")
+        val visitorFutures = nodeMap.mapNotNull { (key, value) ->
+            value?.let { node ->
+                getPlayers(key, MapGroup.VISITOR).thenAccept { players ->
+                    node.visitors = players
+                }
             }
-            builderTask = builderTask.thenRun {
-                getPlayers(
-                    key!!,
-                    MapGroup.BUILDER
-                ).thenAccept { players ->
-                    value?.builders = players
-                }.join()
-            }
-        }
-        adminTask.whenComplete { _: Void, _: Throwable ->
-            plugin.logger.info("§a管理员数据同步完成")
-        }
-        builderTask.whenComplete { _: Void, _: Throwable ->
-            plugin.logger.info("§a建筑人员数据同步完成")
+        }.toTypedArray()
+
+        val visitorTask = CompletableFuture.allOf(*visitorFutures).thenRun {
+            plugin.logger.info("参观人员数据同步完成")
         }
 
-        CompletableFuture.allOf(adminTask, builderTask, visitorTask).whenComplete { _: Void?, e: Throwable? ->
-            if (e != null) {
+        // 并行构建 Admin 和 Builder 数据的查询 Futures
+        plugin.logger.info("开始同步管理员与建筑人员数据...")
+        val groupFutures = groupMap.flatMap { (key, value) ->
+            val futures = mutableListOf<CompletableFuture<Void>>()
+            value?.let { group ->
+                futures.add(getPlayers(key, MapGroup.ADMIN).thenAccept { players ->
+                    group.admins = players
+                })
+                futures.add(getPlayers(key, MapGroup.BUILDER).thenAccept { players ->
+                    group.builders = players
+                })
+            }
+            futures
+        }.toTypedArray()
+
+        val groupTask = CompletableFuture.allOf(*groupFutures).thenRun {
+            plugin.logger.info("管理员与建筑人员数据同步完成")
+        }
+
+        // 等待所有任务并发完成后汇总落盘
+        CompletableFuture.allOf(visitorTask, groupTask).whenComplete { _, throwable ->
+            if (throwable != null) {
+                // 出现异常进行回滚
                 nodeMap = nodeMapBackup
                 groupMap = groupMapBackup
-                plugin.logger.info("§c数据同步时出现错误，同步中止")
-                sender.sendMessage("§c数据同步时出现错误，同步中止")
-                e.printStackTrace()
+                plugin.logger.severe("数据同步时出现错误，同步中止")
+                sender.sendMessage(Component.text("数据同步时出现错误，同步中止", NamedTextColor.RED))
+                throwable.printStackTrace()
                 return@whenComplete
             }
-            plugin.logger.info("§a所有数据均已同步完成")
-            plugin.logger.info("§e数据保存中...")
+
+            // 同步成功，执行保存
+            plugin.logger.info("所有数据均已同步完成，数据保存中...")
             nodeMapBackup.clear()
             groupMapBackup.clear()
             save()
-            plugin.logger.info("§a数据保存完成")
-            sender.sendMessage("§a数据同步完成")
-        }.exceptionally { e: Throwable ->
-            nodeMap = nodeMapBackup
-            groupMap = groupMapBackup
-            plugin.logger.info("§c数据同步时出现错误，同步中止")
-            sender.sendMessage("§c数据同步时出现错误，同步中止")
-            e.printStackTrace()
-            null
+            plugin.logger.info("数据保存完成")
+            sender.sendMessage(Component.text("数据同步完成！", NamedTextColor.GREEN))
         }
     }
 
