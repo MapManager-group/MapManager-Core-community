@@ -548,7 +548,8 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         if (alias == null) {
             alias = world
         }
-        dynamicWorld.getMVWorld(world).alias = "&2${alias}"
+        val str = ignoreColor(alias, "")
+        dynamicWorld.getMVWorld(world).alias = "&2${str}"
         return true
     }
 
@@ -571,7 +572,8 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         if (alias == null) {
             alias = world
         }
-        dynamicWorld.getMVWorld(world).alias = "&3${alias}"
+        val str = ignoreColor(alias, "")
+        dynamicWorld.getMVWorld(world).alias = "&3${str}"
         return true
     }
 
@@ -754,7 +756,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
      */
     override fun setWorldAlias(worldName: String, alias: String) {
         val world = dynamicWorld.getMVWorld(worldName)
-        val str = ignoreColor(alias, worldName)
+        val str = ignoreColor(alias, "")
         if (isPublic(worldName)) {
             world.alias = "&2${str}"
         } else {
@@ -767,7 +769,8 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
      * 清理字段中的颜色代码
      */
     override fun ignoreColor(string: String, world: String): String {
-        return string.replace(Regex("&[0-9a-fk-orA-FK-OR]"), "")
+        return string.replace(Regex(
+            "(?i)(?:[&§]x(?:[&§][0-9a-f]){6}|[&§]#[0-9a-f]{6}|[&§][0-9a-fk-or])"), "")
     }
 
     /**

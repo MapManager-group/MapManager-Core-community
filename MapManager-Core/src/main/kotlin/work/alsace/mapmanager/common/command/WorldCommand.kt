@@ -588,26 +588,6 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                         sender.teleport(loadedWorld.spawnLocation)
                     }
                 }
-
-//                var mvworld = dynamicWorld.getLoadedWorld(name)
-//                if (mvworld == null) {
-//                    val correct = dynamicWorld.getCorrectUnloadedName(name)
-//                    if (correct == null) {
-//                        sender.sendMessage("§c未找到世界" + args[1])
-//                        return false
-//                    }
-//                    sender.sendMessage("§e加载世界中，请稍后...")
-//                    if (!dynamicWorld.loadWorld(correct)) {
-//                        sender.sendMessage("§c世界" + correct + "加载失败，请联系管理员以解决该问题")
-//                        return false
-//                    }
-//                    sender.sendMessage("§a世界加载完毕")
-//                    mvworld = dynamicWorld.getMVWorld(correct)
-//                }
-//                sender.sendMessage("§e正在传送...")
-//                if (mvworld != null) {
-//                    dynamicWorld.getSpawnLocation()?.let { sender.teleport(it) }
-//                }
             }
 
             else -> {
