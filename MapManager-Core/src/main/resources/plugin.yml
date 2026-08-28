@@ -8,7 +8,7 @@ depend:
   - Multiverse-Core
 softdepend:
   - VoidGen
-api-version: '1.16'
+api-version: '1.20'
 authors:
   - AlsaceWork
   - CHuNan
