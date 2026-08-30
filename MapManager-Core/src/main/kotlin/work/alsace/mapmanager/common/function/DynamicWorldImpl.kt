@@ -353,6 +353,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         try {
             mv.importWorld(
                 ImportWorldOptions.worldName(name)
+                    .generator("VoidGen:{}")
                     .environment(gene)
                     .doFolderCheck(true)
             )?.let { importWorld = it }
