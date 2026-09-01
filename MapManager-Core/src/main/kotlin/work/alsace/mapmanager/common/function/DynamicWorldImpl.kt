@@ -5,13 +5,9 @@ import org.bukkit.*
 import org.bukkit.entity.SpawnCategory
 import org.bukkit.scheduler.BukkitRunnable
 import org.mvplugins.multiverse.core.config.handle.PropertyModifyAction
-import org.mvplugins.multiverse.core.utils.result.Attempt
-import org.mvplugins.multiverse.core.world.LoadedMultiverseWorld
 import org.mvplugins.multiverse.core.world.MultiverseWorld
 import org.mvplugins.multiverse.core.world.WorldManager
 import org.mvplugins.multiverse.core.world.options.*
-import org.mvplugins.multiverse.core.world.reasons.CreateFailureReason
-import org.mvplugins.multiverse.core.world.reasons.ImportFailureReason
 import work.alsace.mapmanager.MapManagerImpl
 import work.alsace.mapmanager.enums.MMWorldType
 import work.alsace.mapmanager.service.DynamicWorld
@@ -24,8 +20,8 @@ import java.util.*
  */
 class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
     private val mv = plugin.coreApi.worldManager
-    private val tasks: MutableMap<String?, BukkitRunnable?> = HashMap()
-    private val loaded: MutableSet<String?> = HashSet()
+    private val tasks = HashMap<String, BukkitRunnable>()
+    private val loaded = HashSet<String>()
 
     /**
      * 获取Multiverse-Core的世界管理器。
@@ -67,10 +63,14 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功加载，返回true；否则返回false。
      */
     override fun loadWorld(name: String): Boolean {
-        mv.loadWorld(LoadWorldOptions.world(mv.getLoadedWorld(name).get())) ?: return false
-        loaded.add(name)
-        plugin.logger.info(name + "已加载")
-        return true
+        return mv.getWorld(name)
+            .map { mv.loadWorld(LoadWorldOptions.world(it)) }
+            .map { result ->
+                result.onFailure { failure -> plugin.logger.warning("$name 加载失败: ${failure.failureMessage}") }
+                result.isSuccess
+            }
+            .getOrElse(false)
+            .also { if (it) loaded.add(name) }
     }
 
     /**
@@ -78,18 +78,23 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @param name 世界的名称。
      */
     override fun unloadWorldLater(name: String) {
-        if (!loaded.contains(name)) return
+        if (!loaded.contains(name) || tasks.containsKey(name)) return
         plugin.logger.info("$name 准备卸载")
 
         val runnable = object : BukkitRunnable() {
             override fun run() {
                 val world = Bukkit.getWorld(name)
                 if (world?.players?.isEmpty() == true) {
-                    mv.unloadWorld(UnloadWorldOptions.world(mv.getLoadedWorld(name).get()))
-                    loaded.remove(name)
-                    tasks.remove(name)
-                    plugin.logger.info("$name 已卸载")
+                    mv.getLoadedWorld(name).peek { mvWorld ->
+                        mv.unloadWorld(UnloadWorldOptions.world(mvWorld))
+                            .onFailure { failure -> plugin.logger.warning("$name 卸载失败: ${failure.failureMessage}") }
+                            .onSuccess { _ ->
+                                loaded.remove(name)
+                                plugin.logger.info("$name 已卸载")
+                            }
+                    }
                 }
+                tasks.remove(name)
             }
         }
 
@@ -112,12 +117,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 对应的MultiverseWorld实例，如果未找到则返回null。
      */
     override fun getLoadedWorld(name: String): MultiverseWorld? {
-        return mv.getWorld(name)?.get()
-        //        val lower = name.lowercase(Locale.getDefault())
-//        return mv.mvWorlds?.stream()
-//            ?.filter { world: MultiverseWorld? -> world?.name?.lowercase(Locale.getDefault()) == lower }
-//            ?.findFirst()
-//            ?.orElse(null)
+        return mv.getLoadedWorld(name).getOrNull()
     }
 
     /**
@@ -127,13 +127,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 匹配的世界名称，如果未找到则返回null。
      */
     override fun getCorrectName(name: String): String? {
-        return mv.getLoadedWorld(name)?.get()?.name
-//        val lower = name.lowercase(Locale.getDefault())
-//        return mv.mvWorlds?.stream()
-//            ?.map { obj: MultiverseWorld? -> obj?.name }
-//            ?.filter { world: String? -> lower.let { world?.lowercase(Locale.getDefault())?.startsWith(it) } == true }
-//            ?.findFirst()
-//            ?.orElse(getCorrectUnloadedName(lower))
+        return mv.getWorld(name).getOrNull()?.name
     }
 
     /**
@@ -142,12 +136,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 匹配的未加载世界名称，如果未找到则返回null。
      */
     override fun getCorrectUnloadedName(name: String): String? {
-        return mv.getUnloadedWorld(name)?.get()?.name
-//        val lower = name.lowercase(Locale.getDefault())
-//        return mv.unloadedWorlds?.stream()
-//            ?.filter { world: String? -> world?.lowercase(Locale.getDefault()) == lower }
-//            ?.findFirst()
-//            ?.orElse(null)
+        return mv.getUnloadedWorld(name).getOrNull()?.name
     }
 
     /**
@@ -168,21 +157,11 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 匹配前缀的所有世界名称列表。
      */
     override fun getWorlds(prefix: String): MutableList<String> {
-        val list = mutableListOf<String>()
-        val lowerPrefix = prefix.lowercase(Locale.getDefault())
-
-        // 过滤和添加已加载的世界
-        Bukkit.getWorlds()
-            .mapNotNull { it.name }  // 直接获取世界名称，忽略为 null 的世界
-            .filter { it.lowercase(Locale.getDefault()).startsWith(lowerPrefix) }
-            .forEach { list.add(it) }
-
-        // 过滤和添加未加载的世界
-        mv.unloadedWorlds
-            ?.filter { it.name.lowercase(Locale.getDefault()).startsWith(lowerPrefix) }
-            ?.forEach { list.add(it.name) }
-
-        return list
+        val lowerPrefix = prefix.lowercase(Locale.ROOT)
+        return mv.worlds.asSequence()
+            .map { it.name }
+            .filter { it.lowercase(Locale.ROOT).startsWith(lowerPrefix) }
+            .toMutableList()
     }
 
     /**
@@ -238,8 +217,6 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      */
     override fun getCorrectWorld(name: String): MultiverseWorld? {
         return mv.getWorld(name)?.get()
-//        return mv.mvWorlds
-//            ?.find { world -> world?.name.equals(name, ignoreCase = true) }
     }
 
     /**
@@ -248,13 +225,14 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 如果成功移除，返回true；否则返回false。
      */
     override fun removeWorld(world: String): Boolean {
-        return mv.getWorld(world)?.peek { w ->
-            mv.deleteWorld(DeleteWorldOptions.world(w))
-                ?.onFailure { reason -> plugin.logger.warning("$reason") }
-                ?.onSuccess { delworld -> plugin.logger.info("地图${delworld}已移除") }
-        }?.map { true }?.getOrElse(false)
-            ?: false
-//        return mv.deleteWorld(world, true, true) == true
+        return mv.getWorld(world)
+            .map { mv.deleteWorld(DeleteWorldOptions.world(it)) }
+            .map { result ->
+                result.onFailure { failure -> plugin.logger.warning("地图 $world 删除失败: ${failure.failureMessage}") }
+                result.onSuccess { deletedWorld -> plugin.logger.info("地图 $deletedWorld 已移除") }
+                result.isSuccess
+            }
+            .getOrElse(false)
     }
 
     /**
@@ -264,12 +242,13 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
     override fun getPotentialWorlds(): MutableCollection<String?> {
         val worldDir = File(plugin.server.worldContainer, "")
         if (!worldDir.exists()) return mutableListOf()
-        val managedWorldNames = mv.worlds?.map { it.name }?.toSet() ?: return mutableListOf()
+        val managedWorldNames = mv.worlds.map { it.name }.toSet()
         val systemFolders = setOf(
             "plugins", "logs", "config", "cache", "libraries", "versions",
             "crash-reports"
         )
         val fileNames = worldDir.listFiles()
+            ?.asSequence()
             ?.filter { it.isDirectory }
             ?.filter { !managedWorldNames.contains(it.name) }
             ?.filter { !systemFolders.contains(it.name) }
@@ -285,7 +264,8 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 对应的MultiverseWorld实例，如果未找到则返回null。
      */
     override fun getMVWorld(world: String): MultiverseWorld {
-        return mv.getWorld(world).get()
+        return mv.getWorld(world).getOrNull()
+            ?: error("Multiverse-Core 中不存在世界: $world")
     }
 
     /**
@@ -293,7 +273,8 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 世界的出生点Location实例。
      */
     override fun getSpawnLocation(world: String): Location? {
-        return mv.getWorld(world).get()?.spawnLocation ?: mv.defaultWorld?.get()?.spawnLocation
+        return mv.getWorld(world).getOrNull()?.spawnLocation
+            ?: mv.defaultWorld.getOrNull()?.spawnLocation
     }
 
     /**
@@ -301,7 +282,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      * @return 服务器默认世界的出生点Location实例。
      */
     override fun getDefaultSpawnLocation(): Location? {
-        return mv.defaultWorld?.get()?.spawnLocation
+        return mv.defaultWorld.getOrNull()?.spawnLocation
     }
 
     /**
@@ -349,35 +330,21 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             MMWorldType.END -> gene = World.Environment.THE_END
             MMWorldType.NORMAL -> World.Environment.NORMAL
         }
-        lateinit var importWorld: Attempt<LoadedMultiverseWorld, ImportFailureReason>
-        try {
-            mv.importWorld(
-                ImportWorldOptions.worldName(name)
-                    .generator("VoidGen:{}")
-                    .environment(gene)
-                    .doFolderCheck(true)
-            )?.let { importWorld = it }
-            if (importWorld.isFailure) {
-                plugin.logger.warning(importWorld.failureMessage.toString())
-                return false
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            plugin.logger.warning("导入地图异常")
-            return false
-        }
-        val world = importWorld.get()
-        if (world == null) {
-            plugin.logger.warning("导入地图异常")
-            return false
-        }
-        val safeName = name.lowercase(Locale.getDefault())
+        val options = ImportWorldOptions.worldName(name)
+            .environment(gene)
+            .doFolderCheck(true)
+            .generator("VoidGen:{}")
 
-        if (name != safeName) {
-            plugin.logger.info("已自动转换为符合规范的小写名称: '$safeName'")
-        }
-        initWorld(world, alias)
-        return true
+        return mv.importWorld(options).fold(
+            { failure ->
+                plugin.logger.warning("导入地图 $name 失败: ${failure.failureMessage}")
+                false
+            },
+            { world ->
+                initWorld(world, alias)
+                true
+            }
+        )
     }
 
     /**
@@ -401,67 +368,33 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
             plugin.logger.warning("世界" + safeName + "已经存在")
             return false
         }
-        lateinit var createWorld: Attempt<LoadedMultiverseWorld, CreateFailureReason>
         val key = NamespacedKey.minecraft(safeName)
+        val options = CreateWorldOptions.worldKey(key)
+            .doFolderCheck(true)
+            .generateStructures(false)
         when (generate) {
-            MMWorldType.VOID -> {
-                mv.createWorld(
-                    CreateWorldOptions.worldKey(key)
-                        .generator("VoidGen:{}")
-                        .worldType(WorldType.FLAT)
-                        .environment(World.Environment.NORMAL)
-                        .doFolderCheck(true)
-                        .generateStructures(false)
-                )?.let { createWorld = it }
-            }
-
-            MMWorldType.NORMAL -> {
-                mv.createWorld(
-                    CreateWorldOptions.worldKey(key)
-                        .worldType(WorldType.NORMAL)
-                        .environment(World.Environment.NORMAL)
-                        .doFolderCheck(true)
-                        .generateStructures(false)
-                )?.let { createWorld = it }
-            }
-
-            MMWorldType.NETHER -> {
-                mv.createWorld(
-                    CreateWorldOptions.worldKey(key)
-                        .worldType(WorldType.FLAT)
-                        .environment(World.Environment.NETHER)
-                        .doFolderCheck(true)
-                        .generateStructures(false)
-                )?.let { createWorld = it }
-            }
-
-            MMWorldType.END -> {
-                mv.createWorld(
-                    CreateWorldOptions.worldKey(key)
-                        .worldType(WorldType.FLAT)
-                        .environment(World.Environment.THE_END)
-                        .doFolderCheck(true)
-                        .generateStructures(false)
-                )?.let { createWorld = it }
-            }
-
-            else -> {
-                mv.createWorld(
-                    CreateWorldOptions.worldKey(key)
-                        .worldType(WorldType.FLAT)
-                        .environment(World.Environment.NORMAL)
-                        .doFolderCheck(true)
-                        .generateStructures(false)
-                )?.let { createWorld = it }
-            }
+            MMWorldType.VOID -> options.generator("VoidGen:{}").worldType(WorldType.FLAT)
+            MMWorldType.NORMAL -> options.worldType(WorldType.NORMAL)
+            else -> options.worldType(WorldType.FLAT)
         }
-        if (createWorld.isFailure) {
-            plugin.logger.warning("创建地图异常")
-            return false
-        }
-        val world = createWorld.get()
-        initWorld(world, alias)
-        return true
+        options.environment(
+            when (generate) {
+                MMWorldType.NETHER -> World.Environment.NETHER
+                MMWorldType.END -> World.Environment.THE_END
+                else -> World.Environment.NORMAL
+            }
+        )
+
+        return mv.createWorld(options).fold(
+            { failure ->
+                plugin.logger.warning("创建地图 $safeName 失败: ${failure.failureMessage}")
+                false
+            },
+            { world ->
+                initWorld(world, alias)
+                true
+            }
+        )
     }
 
     override fun initWorld(world: MultiverseWorld) {

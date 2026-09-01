@@ -410,7 +410,8 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                 if (noPermission(sender)) return false
                 //set world spawn point
                 val loc: Location = sender.location
-                dynamicWorld.getMVWorldManager()?.getWorld(sender.world)?.get()?.let { it.spawnLocation = loc }
+                dynamicWorld.getMVWorld(sender.world.name).spawnLocation = loc
+                dynamicWorld.getMVWorldManager()?.saveWorldsConfig()
                 sender.world.spawnLocation = loc
                 sender.sendMessage("§a已将世界出生点设置为： (" + loc.blockX + ", " + loc.blockY + ", " + loc.blockZ + ')')
             }
@@ -502,12 +503,14 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                     Operation.ENABLE -> {
                         //set to true
                         dynamicWorld.getMVWorld(sender.world.name).pvp = true
+                        dynamicWorld.getMVWorldManager()?.saveWorldsConfig()
                         sender.sendMessage("§a已开启PVP")
                     }
 
                     Operation.DISABLE -> {
                         //set to false
                         dynamicWorld.getMVWorld(sender.world.name).pvp = false
+                        dynamicWorld.getMVWorldManager()?.saveWorldsConfig()
                         sender.sendMessage("§a已关闭PVP")
                     }
 
@@ -563,31 +566,24 @@ class WorldCommand(private val plugin: MapManagerImpl) : TabExecutor {
                     sender.sendMessage("§c你没有权限进入此地图")
                     return false
                 }
-                val worldManager = dynamicWorld.getMVWorldManager()
-//              获取已加载的世界实例
-                val loadedWorldOption = worldManager?.getLoadedWorld(name)
-                loadedWorldOption?.let {
-                    // 未加载，获取世界实例
-                    if (it.isEmpty) {
-                        if(!dynamicWorld.isExist(name)) {
-                            sender.sendMessage("§c世界 $name 不存在")
-                            return false
-                        }
-                        sender.sendMessage("§e加载世界中，请稍后...")
-                        if (!dynamicWorld.loadWorld(name)) {
-                            sender.sendMessage("§c世界 $name 加载失败，请联系管理员以解决该问题")
-                            return false
-                        }
-                        val loadedWorld = worldManager.getWorld(name).get()
-                        sender.sendMessage("§a世界加载完毕")
-                        sender.sendMessage("§e正在传送...")
-                        sender.teleport(loadedWorld.spawnLocation)
-                    } else {
-                        sender.sendMessage("§e正在传送...")
-                        val loadedWorld = worldManager.getWorld(name).get()
-                        sender.teleport(loadedWorld.spawnLocation)
+                if (!dynamicWorld.hasLoaded(name)) {
+                    if (!dynamicWorld.isExist(name)) {
+                        sender.sendMessage("§c世界 $name 不存在")
+                        return false
                     }
+                    sender.sendMessage("§e加载世界中，请稍后...")
+                    if (!dynamicWorld.loadWorld(name)) {
+                        sender.sendMessage("§c世界 $name 加载失败，请联系管理员以解决该问题")
+                        return false
+                    }
+                    sender.sendMessage("§a世界加载完毕")
                 }
+                val loadedWorld = dynamicWorld.getLoadedWorld(name) ?: run {
+                    sender.sendMessage("§c世界 $name 未完成加载，请稍后重试")
+                    return false
+                }
+                sender.sendMessage("§e正在传送...")
+                sender.teleport(loadedWorld.spawnLocation)
             }
 
             else -> {
