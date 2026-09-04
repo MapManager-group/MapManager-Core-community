@@ -66,7 +66,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         return mv.getWorld(name)
             .map { mv.loadWorld(LoadWorldOptions.world(it)) }
             .map { result ->
-                result.onFailure { failure -> plugin.logger.warning("$name 加载失败: ${failure.failureMessage}") }
+                result.onFailure { failure -> plugin.logger.warning("world.load failed: world=$name, reason=${failure.failureMessage}") }
                 result.isSuccess
             }
             .getOrElse(false)
@@ -79,7 +79,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
      */
     override fun unloadWorldLater(name: String) {
         if (!loaded.contains(name) || tasks.containsKey(name)) return
-        plugin.logger.info("$name 准备卸载")
+        plugin.logger.info("world.unload scheduled: world=$name")
 
         val runnable = object : BukkitRunnable() {
             override fun run() {
@@ -87,10 +87,10 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
                 if (world?.players?.isEmpty() == true) {
                     mv.getLoadedWorld(name).peek { mvWorld ->
                         mv.unloadWorld(UnloadWorldOptions.world(mvWorld))
-                            .onFailure { failure -> plugin.logger.warning("$name 卸载失败: ${failure.failureMessage}") }
+                            .onFailure { failure -> plugin.logger.warning("world.unload failed: world=$name, reason=${failure.failureMessage}") }
                             .onSuccess { _ ->
                                 loaded.remove(name)
-                                plugin.logger.info("$name 已卸载")
+                                plugin.logger.info("world.unload completed: world=$name")
                             }
                     }
                 }
@@ -147,7 +147,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
     override fun cancelUnloadTask(name: String) {
         if (tasks.containsKey(name)) {
             tasks[name]?.cancel()
-            if (tasks.remove(name) != null) plugin.logger.warning(name + "已取消卸载")
+            if (tasks.remove(name) != null) plugin.logger.info("world.unload cancelled: world=$name")
         }
     }
 
@@ -173,11 +173,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         val luckPerms = plugin.getLuckPerms()
         val playerUuid = plugin.getMapAgent().getUniqueID(player) ?: return emptyList()
 
-        plugin.logger.info(playerUuid.toString())
-
         val user = luckPerms.userManager.loadUser(playerUuid).join() ?: return emptyList()
-
-        plugin.logger.info(user.username ?: "Unknown user")
 
         return getWorlds("")
             .mapNotNull { world ->
@@ -228,8 +224,8 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         return mv.getWorld(world)
             .map { mv.deleteWorld(DeleteWorldOptions.world(it)) }
             .map { result ->
-                result.onFailure { failure -> plugin.logger.warning("地图 $world 删除失败: ${failure.failureMessage}") }
-                result.onSuccess { deletedWorld -> plugin.logger.info("地图 $deletedWorld 已移除") }
+                result.onFailure { failure -> plugin.logger.warning("world.delete failed: world=$world, reason=${failure.failureMessage}") }
+                result.onSuccess { deletedWorld -> plugin.logger.info("world.delete completed: world=$deletedWorld") }
                 result.isSuccess
             }
             .getOrElse(false)
@@ -308,14 +304,14 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         //确认根目录下有要导入的文件
         val file = File(plugin.server.worldContainer, name)
         if (!file.exists()) {
-            plugin.logger.warning("未找到世界文件$name")
+            plugin.logger.warning("world.import rejected: world=$name, reason=folder-not-found")
             return false
         }
         //确认dimension目录下没有同名地图
         val defaultWorld = plugin.server.worlds[0].name
         val dimensionsFile = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$name")
         if (dimensionsFile.exists()) {
-            plugin.logger.warning("世界" + name + "已经存在")
+            plugin.logger.warning("world.import rejected: world=$name, reason=already-exists")
             return false
         }
         val versionCheck = plugin.getVersionCheck()
@@ -337,7 +333,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
 
         return mv.importWorld(options).fold(
             { failure ->
-                plugin.logger.warning("导入地图 $name 失败: ${failure.failureMessage}")
+                plugin.logger.warning("world.import failed: world=$name, reason=${failure.failureMessage}")
                 false
             },
             { world ->
@@ -359,13 +355,13 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         val safeName = name.lowercase(Locale.getDefault())
 
         if (name != safeName) {
-            plugin.logger.info("已自动转换为符合规范的小写名称: '$safeName'")
+            plugin.logger.info("world.create normalized-name: requested=$name, normalized=$safeName")
         }
         val defaultWorld = plugin.server.worlds[0].name
         val dimensionsFile = File(plugin.server.worldContainer, "$defaultWorld/dimensions/minecraft/$safeName")
         val rootFile = File(plugin.server.worldContainer, safeName)
         if (dimensionsFile.exists() || rootFile.exists()) {
-            plugin.logger.warning("世界" + safeName + "已经存在")
+            plugin.logger.warning("world.create rejected: world=$safeName, reason=already-exists")
             return false
         }
         val key = NamespacedKey.minecraft(safeName)
@@ -387,7 +383,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
 
         return mv.createWorld(options).fold(
             { failure ->
-                plugin.logger.warning("创建地图 $safeName 失败: ${failure.failureMessage}")
+                plugin.logger.warning("world.create failed: world=$safeName, reason=${failure.failureMessage}")
                 false
             },
             { world ->
@@ -412,7 +408,7 @@ class DynamicWorldImpl(private val plugin: MapManagerImpl) : DynamicWorld {
         val key = NamespacedKey.minecraft(world.name.lowercase(Locale.getDefault()))
         val w = Bukkit.getWorld(key)
         if (w == null) {
-            plugin.logger.warning("地图初始化失败，无法找到世界${w}")
+            plugin.logger.warning("world.initialize failed: world=${world.name}, reason=bukkit-world-not-found")
             return
         }
         w.setGameRule(GameRule.RANDOM_TICK_SPEED, 0)

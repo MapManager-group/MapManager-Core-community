@@ -260,7 +260,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
                 add(InheritanceNode.builder("apply").build())
                 add(WeightNode.builder(1).build())
             }
-            plugin.logger.info("权限组 ${lp.name} 已创建并初始化完毕")
+            plugin.logger.info("permission.group initialized: group=${lp.name}")
             lp
         }
 
@@ -269,7 +269,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         return groupFuture.thenCombine(userFuture) { lp, user ->
             user?.data()?.add(PermissionNode.builder("mapmanager.admin.$groupLowerCase").build())
             user?.data()?.add(InheritanceNode.builder(lp).build())
-            plugin.logger.info("已将 ${user?.username ?: owner} 添加至 $groupLowerCase 权限组")
+            plugin.logger.info("permission.group member-added: group=$groupLowerCase, player=${user?.username ?: owner}")
 
             Pair(lp, user)
         }.thenCompose { (lp, user) ->
@@ -332,7 +332,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
         // 地图卸载逻辑
         dynamicWorld.getMVWorldManager()?.getLoadedWorld(world)?.getOrNull()?.let {
             dynamicWorld.getMVWorldManager()?.unloadWorld(UnloadWorldOptions.world(it))
-                ?.onFailure { failure -> plugin.logger.warning("卸载地图 $world 失败: ${failure.failureMessage}") }
+                ?.onFailure { failure -> plugin.logger.warning("world.unload failed: world=$world, reason=${failure.failureMessage}") }
         }
 
         // 构造 access 权限节点
@@ -369,7 +369,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
 
         if (group == null || group.name == "__nil") {
             if (worldNode != null) {
-                plugin.logger.warning("权限组 $groupName 未找到")
+                plugin.logger.warning("permission.group missing: group=$groupName, world=$world")
             }
             saveConfigAndCancelTask(world)
             return dynamicWorld.removeWorld(world)
@@ -428,20 +428,19 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
     override fun addPlayer(world: String, group: MapGroup, player: String): Boolean {
         val worldGroup = getWorldGroupName(world)
         if (worldGroup == null) {
-            plugin.logger.warning("§c无法找到${world}对应的权限组")
+            plugin.logger.warning("permission.group missing: world=$world")
             return false
         }
         val uuid = getUniqueID(player) ?: return false
 
-        plugin.logger.info(uuid.toString())
         val user: User? = try {
             luckPerms.userManager.loadUser(uuid).get()
         } catch (e: ExecutionException) {
-            plugin.logger.warning("加载玩家 $player 的 LuckPerms 数据失败: ${e.cause?.message ?: e.message}")
+            plugin.logger.warning("permission.user load-failed: player=$player, reason=${e.cause?.message ?: e.message}")
             return false
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
-            plugin.logger.warning("加载玩家 $player 的 LuckPerms 数据时被中断")
+            plugin.logger.warning("permission.user load-interrupted: player=$player")
             return false
         }
         when (group) {
@@ -484,7 +483,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
     override fun removePlayer(world: String, group: MapGroup, player: String): Boolean {
         val worldGroup = getWorldGroupName(world)
         if (worldGroup == null) {
-            plugin.logger.warning("§c无法找到${world}对应的权限组")
+            plugin.logger.warning("permission.group missing: world=$world")
             return false
         }
         val uuid = getUniqueID(player) ?: return false
@@ -530,7 +529,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
     override fun publicizeWorld(world: String): Boolean {
         val lp = luckPerms.groupManager.getGroup("default")
         if (lp == null) {
-            plugin.logger.warning("§c未找到default权限组")
+            plugin.logger.warning("permission.group missing: group=default")
             return false
         }
         lp.data().add(PermissionNode.builder("multiverse.access." + world.lowercase(Locale.ROOT)).build())
@@ -554,7 +553,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
     override fun privatizeWorld(world: String): Boolean {
         val lp = luckPerms.groupManager.getGroup("default")
         if (lp == null) {
-            plugin.logger.warning("§c未找到default权限组")
+            plugin.logger.warning("permission.group missing: group=default")
             return false
         }
         lp.data()
@@ -579,7 +578,7 @@ class MapAgentImpl(private val plugin: MapManagerImpl) : MapAgent {
     override fun isPublic(world: String): Boolean {
         val lp = luckPerms.groupManager.getGroup("default")
         if (lp == null) {
-            plugin.logger.warning("§c未找到default权限组")
+            plugin.logger.warning("permission.group missing: group=default")
             return false
         }
         val group = lp.nodes

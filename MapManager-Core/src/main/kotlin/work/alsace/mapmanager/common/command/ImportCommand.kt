@@ -10,6 +10,7 @@ import java.util.*
 import java.util.stream.Collectors
 
 class ImportCommand(private val plugin: MapManagerImpl) : TabExecutor {
+    private val messagePrefix = "§6[MapManager] §r"
     private val emptyList: MutableList<String?> = ArrayList(0)
     override fun onTabComplete(
         sender: CommandSender,
@@ -53,7 +54,7 @@ class ImportCommand(private val plugin: MapManagerImpl) : TabExecutor {
 
     override fun onCommand(sender: CommandSender, cmd: Command, label: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("mapmanager.command.import")) {
-            sender.sendMessage("§c你没有权限使用此命令")
+            sender.sendMessage("${messagePrefix}§c权限不足，无法执行此命令。")
             return true
         }
         var name: String? = null
@@ -74,7 +75,7 @@ class ImportCommand(private val plugin: MapManagerImpl) : TabExecutor {
             }
         }
         if (name == null) {
-            sender.sendMessage("§c未指定地图名")
+            sender.sendMessage("${messagePrefix}§c缺少地图名：请使用 n:<地图名>。")
             return true
         }
         if (owner == null) owner = sender.name
@@ -88,10 +89,10 @@ class ImportCommand(private val plugin: MapManagerImpl) : TabExecutor {
             else -> MMWorldType.FLAT
         }
         if (!plugin.getDynamicWorld().importWorld(name, alias, color, generateType)) {
-            sender.sendMessage("§c地图导入失败，请查看控制台以获取更多信息")
+            sender.sendMessage("${messagePrefix}§c地图导入失败，请查看控制台日志。")
             return true
         }
-        sender.sendMessage("§a已导入地图")
+        sender.sendMessage("${messagePrefix}§a地图已导入并初始化。")
         plugin.getMapAgent().newWorld(name, owner, group)
         return true
     }
