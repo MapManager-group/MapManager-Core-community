@@ -8,6 +8,7 @@ import org.bukkit.entity.Player
 import work.alsace.mapmanager.enums.MapGroup
 import work.alsace.mapmanager.pojo.WorldGroup
 import work.alsace.mapmanager.pojo.WorldNode
+import java.io.File
 import java.util.*
 import java.util.concurrent.CompletableFuture
 
@@ -234,6 +235,19 @@ interface MapAgent {
     fun getUniqueID(player: String): UUID?
 
     /**
+     * 获取服务器地图所在父目录
+     * @return 返回服务器地图所在父目录
+     */
+    fun getWorldParentFolder(): File
+
+    /**
+     * 获取地图目录
+     * @param world 地图名称
+     * @return 返回地图目录
+     */
+    fun getWorldFolder(world: String): File
+
+    /**
      * 通过玩家名获取服务器在线玩家
      * @param player 玩家id
      * @return Player 玩家实体
@@ -270,9 +284,9 @@ interface MapAgent {
 
     /**
      * 忽略字符颜色
-     * @param string 字符串
-     * @param color ChatColor 颜色
+     * @param string String 字符串
+     * @param world String 地图名
      * @return 返回的字符串
      */
-    fun ignoreColor(string: String, color: ChatColor): String
+    fun ignoreColor(string: String, world: String): String
 }

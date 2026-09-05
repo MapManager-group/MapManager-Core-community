@@ -10,6 +10,7 @@ import java.util.*
 import java.util.stream.Collectors
 
 class MapAdminCommand(plugin: MapManagerImpl) : TabExecutor {
+    private val messagePrefix = "§6[MapManager] §r"
     private val mapAgent: MapAgent = plugin.getMapAgent()
     private val subCommand: MutableList<String?> =
         mutableListOf("reload", "physics", "explosion", "sync", "save")
@@ -61,23 +62,23 @@ class MapAdminCommand(plugin: MapManagerImpl) : TabExecutor {
 
     override fun onCommand(sender: CommandSender, cmd: Command, label: String, args: Array<String>): Boolean {
         if (!sender.hasPermission("mapmanager.command.mapadmin.md")) {
-            sender.sendMessage("§c你，莫得权限")
+            sender.sendMessage("${messagePrefix}§c权限不足，无法执行此命令。")
             return true
         }
         if (args.isEmpty()) {
-            sender.sendMessage("§c参数不足，请补全参数")
+            sender.sendMessage("${messagePrefix}§c缺少操作参数。")
             return true
         }
         when (args[0].lowercase(Locale.getDefault())) {
             "reload" -> {
                 mapAgent.reload()
-                sender.sendMessage("§a重载完毕")
+                sender.sendMessage("${messagePrefix}§a配置已重载。")
             }
 
             "physics", "physical" -> {
                 if (args.size < 2) {
-                    sender.sendMessage("§c参数不足，请补全参数")
-                    return false
+                    sender.sendMessage("${messagePrefix}§c缺少状态参数。")
+                    return true
                 }
                 when (getOperation(args[1])) {
                     ENABLE -> {
@@ -99,8 +100,8 @@ class MapAdminCommand(plugin: MapManagerImpl) : TabExecutor {
 
             "explosion", "exploded" -> {
                 if (args.size < 2) {
-                    sender.sendMessage("§c参数不足，请补全参数")
-                    return false
+                    sender.sendMessage("${messagePrefix}§c缺少状态参数。")
+                    return true
                 }
                 when (getOperation(args[1])) {
                     ENABLE -> {
@@ -125,11 +126,11 @@ class MapAdminCommand(plugin: MapManagerImpl) : TabExecutor {
             }
 
             "save" -> {
-                if (mapAgent.save()) sender.sendMessage("§a保存成功") else sender.sendMessage("§c保存失败")
+                if (mapAgent.save()) sender.sendMessage("${messagePrefix}§a数据已保存。") else sender.sendMessage("${messagePrefix}§c数据保存失败，请查看控制台日志。")
             }
 
             else -> {
-                sender.sendMessage("§c未知操作")
+                sender.sendMessage("${messagePrefix}§c未知操作。")
             }
         }
         return true

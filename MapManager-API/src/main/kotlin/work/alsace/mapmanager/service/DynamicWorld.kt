@@ -1,9 +1,10 @@
 package work.alsace.mapmanager.service
 
-import com.onarandombox.MultiverseCore.api.MVWorldManager
-import com.onarandombox.MultiverseCore.api.MultiverseWorld
 import net.luckperms.api.model.user.User
 import org.bukkit.Location
+import org.mvplugins.multiverse.core.world.MultiverseWorld
+import org.mvplugins.multiverse.core.world.WorldManager
+import org.mvplugins.multiverse.external.vavr.control.Option
 import work.alsace.mapmanager.enums.MMWorldType
 
 /**
@@ -15,7 +16,7 @@ interface DynamicWorld {
      * 获取Multiverse-Core的世界管理器。
      * @return MVWorldManager实例，如果Multiverse-Core插件不存在则为null。
      */
-    fun getMVWorldManager(): MVWorldManager?
+    fun getMVWorldManager(): WorldManager?
 
     /**
      * 检查指定名称的世界是否已加载。
@@ -132,13 +133,19 @@ interface DynamicWorld {
      * @param world 世界的名称。
      * @return 对应的MultiverseWorld实例，如果未找到则返回null。
      */
-    fun getMVWorld(world: String): MultiverseWorld?
+    fun getMVWorld(world: String): MultiverseWorld
 
     /**
      * 获取服务器默认世界的出生点位置。
      * @return 服务器默认世界的出生点Location实例。
      */
-    fun getSpawnLocation(): Location?
+    fun getDefaultSpawnLocation(): Location?
+
+    /**
+     * 获取某个世界的出生点位置。
+     * @return 某个世界的出生点Location实例，若无，则获取主世界的Location实例。
+     */
+    fun getSpawnLocation(world: String): Location?
 
     /**
      * 导入指定名称的世界。
@@ -176,4 +183,17 @@ interface DynamicWorld {
      * @return 结果
      */
     fun hasPermission(user: User, permission: String): Boolean
+
+    /**
+     * 初始化地图配置
+     * @param world MultiverseWorld mv世界
+     * @param alias String 别名
+     */
+    fun initWorld(world: MultiverseWorld, alias: String)
+
+    /**
+     * 初始化地图配置
+     * @param world MultiverseWorld mv世界
+     */
+    fun initWorld(world: MultiverseWorld)
 }

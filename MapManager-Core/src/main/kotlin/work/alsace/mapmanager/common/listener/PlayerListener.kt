@@ -21,32 +21,6 @@ class PlayerListener(private val plugin: MapManagerImpl) : Listener {
     }
 
     /**
-     * 玩家离开游戏时，判断是否需要卸载世界。
-     * @param event 玩家离开游戏事件。
-     */
-    @EventHandler
-    fun onPlayerQuit(event: PlayerQuitEvent) {
-        val player = event.player
-        if (player.world.players.size <= 1) plugin.getDynamicWorld().unloadWorldLater(player.world.name)
-    }
-
-    /**
-     * 玩家切换世界时，取消卸载世界任务。
-     * @param event 玩家切换世界事件。
-     */
-    @EventHandler
-    fun onPlayerChangeWorld(event: PlayerChangedWorldEvent) {
-        val fromWorld = event.from
-        val toWorld = event.player.world
-
-        // 卸载玩家离开的世界
-        plugin.getDynamicWorld().unloadWorldLater(fromWorld.name)
-
-        // 取消卸载玩家进入的世界
-        plugin.getDynamicWorld().cancelUnloadTask(toWorld.name)
-    }
-
-    /**
      * 玩家切换世界时，检测是否有权限
      */
     @EventHandler

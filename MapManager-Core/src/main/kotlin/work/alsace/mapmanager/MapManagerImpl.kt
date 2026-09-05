@@ -1,6 +1,5 @@
 package work.alsace.mapmanager
 
-import com.onarandombox.MultiverseCore.MultiverseCore
 import net.luckperms.api.LuckPerms
 import net.luckperms.api.node.types.InheritanceNode
 import org.apache.logging.log4j.LogManager
@@ -9,6 +8,7 @@ import org.bukkit.Bukkit
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.TabExecutor
 import org.bukkit.plugin.java.JavaPlugin
+import org.mvplugins.multiverse.core.MultiverseCoreApi
 import work.alsace.mapmanager.common.command.*
 import work.alsace.mapmanager.common.function.VersionCheckImpl
 import work.alsace.mapmanager.common.listener.BlockListener
@@ -30,7 +30,7 @@ class MapManagerImpl : JavaPlugin(), MapManager {
     private var luckPerms: LuckPerms? = null
     private var yaml: MainYaml? = null
     private var versionCheck: VersionCheck? = null
-    var multiverseCore: MultiverseCore? = null
+    lateinit var coreApi: MultiverseCoreApi
     override fun onEnable() {
         server.consoleSender.sendMessage("[§6MapManager§7] §f启动中...")
 
@@ -44,7 +44,10 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         logger.info("正在获取LuckPerms API...")
         (LogManager.getRootLogger() as Logger).addFilter(Log4JFilter())
         luckPerms = Bukkit.getServicesManager().getRegistration(LuckPerms::class.java)?.provider
-        multiverseCore = Bukkit.getServer().pluginManager.getPlugin("Multiverse-Core") as MultiverseCore?
+        val provider = Bukkit.getServicesManager().getRegistration(MultiverseCoreApi::class.java)
+        if (provider != null) {
+            coreApi = provider.provider
+        }
         initPermission()
 
         VersionBridge().serverVersionChecks(this)
@@ -57,9 +60,11 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         registerCommand("worldtp", WorldTPCommand(this))
         registerCommand("create", CreateCommand(this))
         registerCommand("world", WorldCommand(this))
+        registerCommand("init", InitCommand(this))
         setVersionCheck(VersionCheckImpl(this))
         server.pluginManager.registerEvents(BlockListener(this), this)
         server.pluginManager.registerEvents(PlayerListener(this), this)
+
         server.consoleSender.sendMessage("[§6MapManager§7] §f加载成功！")
         instance = this
     }
@@ -98,11 +103,11 @@ class MapManagerImpl : JavaPlugin(), MapManager {
         return luckPerms!!
     }
 
-    override fun getMainYaml(): MainYaml {
+    override fun getMainYaml(): work.alsace.mapmanager.service.MainYaml {
         return yaml!!
     }
 
-    override fun setMainYaml(yaml: MainYaml) {
+    override fun setMainYaml(yaml: work.alsace.mapmanager.service.MainYaml) {
         this.yaml = yaml
     }
 
@@ -166,5 +171,9 @@ class MapManagerImpl : JavaPlugin(), MapManager {
 
     override fun getInstance(): MapManager? {
         return instance
+    }
+
+    fun getMVApi(): MultiverseCoreApi {
+        return coreApi
     }
 }

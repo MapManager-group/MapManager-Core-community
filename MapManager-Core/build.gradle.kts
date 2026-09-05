@@ -5,27 +5,25 @@ description = "MapManager-Core"
 
 plugins {
     id("buildlogic.java-conventions")
-    kotlin("jvm") version "1.9.23"
-    id("com.github.johnrengelman.shadow") version "7.1.0"
+    kotlin("jvm") version "2.3.0"
+    id("com.gradleup.shadow") version "8.3.6"
 }
 
 group = "work.alsace.mapmanager"
-version = "3.1.11-snapshot"
+version = "3.4.0"
 
 
 dependencies {
     implementation(project(":MapManager-API"))
-    implementation(project(":v1_16_R1"))
-    implementation(project(":v1_20_R1"))
 
     implementation("net.kyori:adventure-api:4.14.0")
     implementation("org.apache.logging.log4j:log4j-core:2.17.1")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
     implementation("com.github.Querz:NBT:6.1")
 
-    compileOnly("com.onarandombox.multiversecore:Multiverse-Core:4.3.0")
+    compileOnly("org.mvplugins.multiverse.core:multiverse-core:5.7.2")
     compileOnly("net.luckperms:api:5.3")
-    compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
 }
 
 tasks.shadowJar {
@@ -40,6 +38,12 @@ tasks.shadowJar {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
 }

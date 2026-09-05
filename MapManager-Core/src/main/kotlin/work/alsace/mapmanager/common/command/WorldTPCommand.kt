@@ -9,6 +9,7 @@ import work.alsace.mapmanager.service.DynamicWorld
 import java.util.stream.Collectors
 
 class WorldTPCommand(plugin: MapManagerImpl) : TabExecutor {
+    private val messagePrefix = "§6[MapManager] §r"
     private var dynamicWorld: DynamicWorld? = null
 
     init {
@@ -28,11 +29,11 @@ class WorldTPCommand(plugin: MapManagerImpl) : TabExecutor {
 
     override fun onCommand(sender: CommandSender, cmd: Command, label: String, args: Array<String>): Boolean {
         if (!sender.hasPermission("mapmanager.world")) {
-            sender.sendMessage("§c你没有权限使用此命令")
+            sender.sendMessage("${messagePrefix}§c权限不足，无法执行此命令。")
             return true
         }
         if (args.isEmpty()) {
-            sender.sendMessage("§c参数不足，请补全参数")
+            sender.sendMessage("${messagePrefix}§c缺少目标地图。")
             return true
         }
         Bukkit.dispatchCommand(sender, "world tp " + args[0])

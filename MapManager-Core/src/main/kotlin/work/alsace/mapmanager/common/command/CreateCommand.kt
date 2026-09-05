@@ -10,6 +10,7 @@ import java.util.*
 import java.util.stream.Collectors
 
 class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
+    private val messagePrefix = "§6[MapManager] §r"
     private val emptyList: MutableList<String?> = ArrayList(0)
     override fun onTabComplete(
         sender: CommandSender,
@@ -53,7 +54,7 @@ class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
 
     override fun onCommand(sender: CommandSender, cmd: Command, p2: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("mapmanager.command.create")) {
-            sender.sendMessage("§c你没有权限使用此命令")
+            sender.sendMessage("${messagePrefix}§c权限不足，无法执行此命令。")
             return true
         }
         var name: String? = null
@@ -63,7 +64,7 @@ class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
         var group: String? = null
         var owner: String? = null
         for (arg in args) {
-            when (arg.substring(0, 2)) {
+            when (arg.take(2)) {
                 "n:" -> name = arg.substring(2)
                 "e:" -> generate = arg.substring(2)
                 "a:" -> alias = arg.substring(2)
@@ -74,7 +75,7 @@ class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
             }
         }
         if (name == null) {
-            sender.sendMessage("§c未指定地图名")
+            sender.sendMessage("${messagePrefix}§c缺少地图名：请使用 n:<地图名>。")
             return true
         }
         if (owner == null) owner = sender.name
@@ -88,11 +89,11 @@ class CreateCommand(private val plugin: MapManagerImpl) : TabExecutor {
             else -> MMWorldType.FLAT
         }
         if (!plugin.getDynamicWorld().createWorld(name, alias, color, generateType)) {
-            sender.sendMessage("§c地图创建失败，请查看控制台以获取更多信息")
+            sender.sendMessage("${messagePrefix}§c地图创建失败，请查看控制台日志。")
             return true
         }
         plugin.getMapAgent().newWorld(name, owner, group)
-        sender.sendMessage("§a已创建并初始化地图")
+        sender.sendMessage("${messagePrefix}§a地图已创建并初始化。")
         return true
     }
 }

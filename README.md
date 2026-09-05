@@ -1,180 +1,195 @@
 # MapManager-Core
 
-MapManager-Core is a simple and easy-to-use Minecraft server plugin that offers efficient and flexible multi-world management capabilities.
+[中文文档]( README_zh-CN.md)
 
-## Installing MapManager
+MapManager-Core is a Minecraft multi-world management plugin for creative and building servers. It uses Multiverse-Core
+to manage worlds and LuckPerms to manage map owners, builders, and visitors.
 
-Make sure you have LuckPerms and Multiverse-core installed before installation
+## Installation
 
-1. **Download the Plugin**
-2. **Install the Plugin**: Place the downloaded `MapManager-Core-{version}.jar` file into the `plugins` directory of your server.
-3. **Start the Server**: If the server is running, it needs to be restarted to load the plugin. If the server is not started, simply start the server.
+Before installing MapManager-Core, install compatible versions of:
 
-## Map Permission Groups
+- LuckPerms
+- Multiverse-Core
+- VoidGen when using void worlds
 
-Map permissions are divided into three categories: `admin`, `builder`, `visitor`.
+Then place `MapManager-Core-{version}.jar` in the server's `plugins` directory and restart the server. On first start,
+MapManager-Core creates `config.yml`, `worlds.json`, and `groups.json` in `plugins/MapManager-Core/`, plus the
+`worldbase`, `apply`, and `public` LuckPerms groups if they do not already exist.
 
-- **admin**
-  - Map administrators, who can add or remove members from private maps, manage physical (block updates), explosion protection, public status, name, and spawn point of the map.
-- **builder**
-  - Builders, who can build on private maps. The permissions available to builders are configured in `worldbase`.
-- **visitor**
-  - Visitors, who can enter private maps but do not have building permissions.
+The Core module targets Java 21 and declares Minecraft API version 1.20.
 
-## Configuring Permission Groups
+## Map Roles
 
-MapManager-Core automatically creates two permission groups upon first load: `worldbase` and `apply`. Here is a guide on how to configure these two permission groups:
+Each map has three roles:
 
-### worldbase Permission Group
+| Role    | What it can do                                                                   |
+|---------|----------------------------------------------------------------------------------|
+| Admin   | Manage members and settings for maps in its map group. Admins are also builders. |
+| Builder | Enter the map and receive permissions configured in `worldbase` for that world.  |
+| Visitor | Enter one specific map, without receiving builder permissions.                   |
 
-The `worldbase` permission group provides necessary permissions for the builders (builder group) in the map. These permissions are automatically inherited by the corresponding map's permission group upon creation.
+Map groups are set with `g:` when creating or importing a map. Maps that use the same group share admins and builders;
+visitors remain per-map.
 
-We recommend adding building permissions for the map to builders (e.g., essentials.build, buildcore.protect.*), WorldEdit permissions, etc.
+Normal players need `mapmanager.world` to use `/world` and `/worldtp`.
 
-### apply Permission Group
+## Configure LuckPerms Groups
 
-The `apply` permission group provides server-wide permissions for players with private map permissions. The permission group created at the time of map creation will inherit `apply`.
+### `worldbase`
 
-You can configure permissions for the public material library or the map hosting players as members, etc., for the `apply` permission group.
+Every map group inherits `worldbase` with a world context. Add permissions that builders should have only while they are
+inside a map, such as WorldEdit or permissions from your protection/build plugin.
 
-This step is optional.
+For example, this gives builders WorldEdit selection permission:
 
-1. **Adding Permissions**: Similar to the commands above, you only need to add the respective permission nodes to the apply group.
-
-## Configuration File
-
-MapManager's configuration file `MapManagerConfig.yml` offers some global settings options:
-
-```yaml
-!MapManagerConfig #Configuration file marker, do not modify
-global:
-  exploded: null # Whether to globally enable explosion damage. Options: true, false, null
-  physical: null # Whether to globally enable physical effects. Options: true, false, null
+```text
+/lp group worldbase permission set worldedit.selection.pos true
 ```
 
+Use the permission nodes required by your own protection plugin. MapManager-Core manages membership and world access; it
+does not itself implement block-place or block-break protection.
 
-exploded: Controls whether explosion damage effects are allowed. A null value indicates adherence to each world's settings.
-physical: Controls whether physical effects (such as block dropping) are allowed. A null value indicates adherence to each world's settings.
+### `apply`
+
+Every newly created map group inherits `apply` without a world context. Put shared permissions here when all map
+builders should receive them anywhere on the server, for example access to a shared materials world.
+
+```text
+/lp group apply permission set multiverse.access.materials true
+```
+
+This group is optional. Do not put map-only build permissions in `apply`, because they will apply outside the map as
+well.
+
+## Configuration
+
+`plugins/MapManager-Core/config.yml` stores global physics and explosion settings:
+
+```yaml
+!MapManagerConfig
+global:
+  exploded: null
+  physical: null
+```
+
+Use `true` to enable, `false` to disable, or `null` to leave the global value unset. Keep the `!MapManagerConfig`
+header. Per-map settings are controlled with `/world physics` and `/world explosion`; save changes with
+`/mapadmin save`.
 
 ## Commands
 
-Here are all commands which MapManager registered.
+`<...>` is required and `[...]` is optional.
 
-* /world admins
+### Create and import maps
 
-  List all admins in a world.
+```text
+/create n:<world> [e:<type>] [a:<alias>] [g:<group>] [o:<owner>]
+/import n:<world> [e:<type>] [a:<alias>] [g:<group>] [o:<owner>]
+```
 
-* /world admin \<add|remove\> \<id\>
+Both commands create the map's LuckPerms group and make `o:` its first admin. Required permissions are
+`mapmanager.command.create` and `mapmanager.command.import`.
 
-  Add an admin to or remove an admin from a world.
+| Parameter | Meaning                                                                                      |
+|-----------|----------------------------------------------------------------------------------------------|
+| `n:`      | World name. Required. Use lower-case names. For import, the world folder must already exist. |
+| `e:`      | `flat`, `normal`, `void_gen`, `nether`, or `the_end`. Defaults to `flat`.                    |
+| `a:`      | Display name. Defaults to the world name.                                                    |
+| `g:`      | Shared map group. Defaults to the world name.                                                |
+| `o:`      | First map admin. Defaults to the command sender; provide it explicitly from console.         |
 
-* /world builders
+Examples:
 
-  List all builders in a world.
+```text
+/create n:studio e:flat a:Studio g:builders o:Alice
+/create n:sky_gallery e:void_gen a:SkyGallery g:builders o:Alice
+/import n:old_city e:normal a:OldCity g:city_team o:Alice
+```
 
-* /world builder \<add|remove\> \<id\>
+Imports require a valid world folder with `level.dat` in the server world container. Back up an imported world before
+managing it.
 
-  Add a builder to or remove a builder from a world.
+### Manage the current map
 
-* /world visitors
+All `/world` commands are player-only and require `mapmanager.world`. Commands that change membership or settings also
+require `mapmanager.admin.<group>` for the current map.
 
-  List all visitors in a world.
+| Command                                               | Description                                                          |
+|-------------------------------------------------------|----------------------------------------------------------------------|
+| `/world admins`, `/world builders`, `/world visitors` | List the current map's members.                                      |
+| `/world admin <add \| remove> <player>`               | Add or remove an admin.                                              |
+| `/world builder <add \| remove> <player>`             | Add or remove a builder.                                             |
+| `/world visitor <add \| remove> <player>`             | Add or remove a visitor for the current map.                         |
+| `/world public [true \| false \|info]`                | Make the current map public, private, or show its status.            |
+| `/world physics [true \| false \|info]`               | Control block physics for the current map.                           |
+| `/world explosion [true \| false \|info]`             | Control explosion block damage for the current map.                  |
+| `/world pvp [true \| false \|info]`                   | Control PVP for the current map.                                     |
+| `/world setname <name>`                               | Set the map display name.                                            |
+| `/world setspawn`                                     | Set the current location as the map spawn.                           |
+| `/world kick <player>`                                | Send an online player in the current map to the default-world spawn. |
+| `/world tp <world>`                                   | Load the target map if needed and teleport to its spawn.             |
 
-* /world visitor \<add|remove\> \<id\>
+`on`, `enable`, and `yes` also mean `true`; `off`, `disable`, and `no` mean `false`. Use `/world public true` to publish
+a map. Adding `*` as a visitor does not publish it.
 
-  Add a visitor to or remove a visitor from a world.
+`/worldtp <world>` and `/wtp <world>` are shortcuts for `/world tp <world>`.
 
-  Tip: Fill the \<id\> with "*" in order to make your world public.
+### Administration
 
-* /world physics \[info|true|false\]
+| Command                                        | Permission                       | Description                                                                      |
+|------------------------------------------------|----------------------------------|----------------------------------------------------------------------------------|
+| `/init <world>`                                | `mapmanager.command.init`        | Apply MapManager's default world settings to a loaded Multiverse world.          |
+| `/delete [world]`                              | `mapmanager.command.delete`      | Start deletion; confirm within 10 seconds with `/delete confirm`. Back up first. |
+| `/write`                                       | `mapmanager.command.write`       | Print the currently loaded map and group records.                                |
+| `/mapadmin save`                               | `mapmanager.command.mapadmin.md` | Save MapManager data and Multiverse world settings.                              |
+| `/mapadmin reload`                             | `mapmanager.command.mapadmin.md` | Reload `worlds.json` and `groups.json`.                                          |
+| `/mapadmin sync`                               | `mapmanager.command.mapadmin.md` | Rebuild cached member lists from LuckPerms.                                      |
+| `/mapadmin physics <true \| false \| clear>`   | `mapmanager.command.mapadmin.md` | Set or clear the global physics value.                                           |
+| `/mapadmin explosion <true \| false \| clear>` | `mapmanager.command.mapadmin.md` | Set or clear the global explosion value.                                         |
 
-  * info or null - Show whether the physics turned on in the world.
-  * true - Turn on the physics
-  * false - Turn off the physics
-
-* /world explosion \[info|true|false\]
-
-  * info or null - Show whether the world has explosion.
-  * true - Turn on the explosion.
-  * false - Turn off the explosion.
-
-* /world pvp \[info|true|false\]
-
-  * info or null - Show whether the world can pvp.
-  * true - Turn on the pvp.
-  * false - Turn off the pvp.
-
-* /world kick <id>
-
-  Kick a player out of your world.
-
-* /world setname <name>
-
-  Set the name of the world.
-
-* /world setspawn
-
-  Set the spawn location.
-
-* /world reload
-
-  Permission "mapmanager.administrator" is required.
-
-  Reload the config.
-
-* /import n:\<name\> a:\[alias\] c:\[color\] g:\<permission group\> o:\<owner\>
-
-  Permission "mapmanager.command.import" is required.
-
-  Import and initialize a world.
-
-* /delete \[world\]
-
-  Permission "mapmanager.command.delete" is required.
-
-  Delete a world.
-
-* /write
-
-  Permission "worldmanager.command.write" is required.
-
-  Print details of all worlds.
+`/delete` can remove world data through Multiverse-Core. Always make a backup before confirming.
 
 ## Development
 
-### Dependencies
+Use the published API as a compile-only dependency. Do not shade MapManager-Core into your own plugin.
 
-Maven
+Maven:
 
 ```xml
-<repository>
-     <id>sonatype</id>
-     <url>https://oss.sonatype.org/content/groups/public/</url>
-</repository>
+
 <dependency>
     <groupId>work.alsace.mapmanager</groupId>
     <artifactId>MapManager-Core</artifactId>
-    <version>3.0</version>
+    <version>${version}</version>
     <scope>provided</scope>
 </dependency>
 ```
 
-Gradle (kotlin)
+Gradle Kotlin DSL:
 
-```kts
-maven(url = "https://oss.sonatype.org/content/groups/public/")
-compileOnly("work.alsace.mapmanager:MapManager-Core:3.1.7")
+```kotlin
+dependencies {
+    compileOnly("work.alsace.mapmanager:MapManager-Core:${version}")
+}
 ```
 
-### JavaDoc
+Add MapManager-Core as a dependency in your plugin descriptor:
 
-[JavaDoc](https://www.alsace.team/MapManager/javadoc/)
-### How to Integrate MapManager-Core
+```yaml
+depend:
+  - MapManager-Core
+```
+
+Retrieve the service after your plugin is enabled:
+
 ```java
 MapManager mapManagerCore = ((MapManager) Objects
         .requireNonNull(Bukkit.getServer()
-        .getPluginManager()
-        .getPlugin("MapManager-Core"));
+                .getPluginManager()
+                .getPlugin("MapManager-Core"));
 ```
 
-[Documentatiton](https://alsaceteam.feishu.cn/wiki/KFLewAQZiiHhRFkXhRQcaQmMn2c)
+`MapAgent` manages map membership, public status, aliases, and stored data. `DynamicWorld` manages Multiverse worlds,
+including creation, import, loading, initialization, and deletion. Calls that change Bukkit or world state must run on
+the server main thread.

@@ -5,26 +5,32 @@ description = "MapManager-API"
 
 plugins {
     id("buildlogic.java-conventions")
-    kotlin("jvm") version "1.9.23"
-    id("org.jetbrains.dokka") version "1.9.20"
+    kotlin("jvm") version "2.3.0"
+    id("org.jetbrains.dokka") version "2.0.0"
     id("net.thebugmc.gradle.sonatype-central-portal-publisher") version "1.2.3"
 }
 
 group = "work.alsace.mapmanager"
-version = "3.1.11-snapshot"
+version = "3.3.1-snapshot"
 
 
 dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    compileOnly("com.onarandombox.multiversecore:Multiverse-Core:4.3.0")
+    compileOnly("org.mvplugins.multiverse.core:multiverse-core:5.7.2")
     compileOnly("net.luckperms:api:5.3")
-    compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
 }
 
 signing {

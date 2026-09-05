@@ -1,15 +1,16 @@
 package work.alsace.mapmanager.common.function
 
-import com.onarandombox.MultiverseCore.utils.WorldNameChecker
 import net.querz.nbt.io.NBTUtil
 import net.querz.nbt.io.NamedTag
 import net.querz.nbt.tag.CompoundTag
+import org.mvplugins.multiverse.core.world.helpers.WorldNameChecker
 import work.alsace.mapmanager.MapManagerImpl
 import work.alsace.mapmanager.service.VersionCheck
 import java.io.File
 import java.io.IOException
 
 class VersionCheckImpl(private val plugin: MapManagerImpl) : VersionCheck {
+    val checker = WorldNameChecker()
     /**
      * 检测主目录下地图文件版本是否合法
      * @param world String 地图名
@@ -17,12 +18,7 @@ class VersionCheckImpl(private val plugin: MapManagerImpl) : VersionCheck {
      */
     override fun isMapVersionCorrect(world: String): Boolean {
         val worldDir = File(plugin.server.worldContainer, world)
-        if (!WorldNameChecker.isValidWorldFolder(worldDir)) {
-            plugin.logger.info("§c未发现" + world + "中的.dat文件")
-            return false
-        }
-        return WorldNameChecker.isValidWorldFolder(worldDir)
-                && isLevelFileVersionCorrect(worldDir)
+        return isMapVersionCorrect(worldDir)
     }
 
     /**
@@ -31,12 +27,23 @@ class VersionCheckImpl(private val plugin: MapManagerImpl) : VersionCheck {
      * @return true为合法，false不合法
      */
     override fun isMapVersionCorrect(dir: File): Boolean {
-        if (!WorldNameChecker.isValidWorldFolder(dir)) {
-            plugin.logger.info("§c未发现" + dir + "中的.dat文件")
+        if (!File(dir, "level.dat").exists()) {
+            plugin.logger.info("${dir}不是有效的地图文件，缺少level.dat")
             return false
         }
-        return WorldNameChecker.isValidWorldFolder(dir)
-                && isLevelFileVersionCorrect(dir)
+        if (!checker.isValidWorldFolder(dir)) {
+            plugin.logger.info("${dir}不是有效的地图目录")
+            return false
+        }
+        if (!checker.isValidWorldName(dir.name)) {
+            plugin.logger.info("${dir}不是有效的地图名称")
+            return false
+        }
+        if (!isLevelFileVersionCorrect(dir)) {
+            plugin.logger.info("${dir}地图版本不符合导入规范")
+            return false
+        }
+        return true
     }
 
     /**

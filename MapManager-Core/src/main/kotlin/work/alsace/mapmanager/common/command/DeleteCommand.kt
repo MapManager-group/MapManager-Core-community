@@ -9,11 +9,11 @@ import work.alsace.mapmanager.service.DynamicWorld
 import work.alsace.mapmanager.service.MapAgent
 
 class DeleteCommand(plugin: MapManagerImpl) : TabExecutor {
+    private val messagePrefix = "§6[MapManager] §r"
     private val lastTime: MutableMap<String?, DeletionNode?> = HashMap()
     private val world: DynamicWorld
     private val map: MapAgent
     private val emptyList: MutableList<String?> = ArrayList(0)
-    private val nullNode: DeletionNode = DeletionNode(-1, "§~.nullWorld")
 
     init {
         world = plugin.getDynamicWorld()
@@ -31,16 +31,16 @@ class DeleteCommand(plugin: MapManagerImpl) : TabExecutor {
 
     override fun onCommand(sender: CommandSender, cmd: Command, label: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("mapmanager.command.delete")) {
-            sender.sendMessage("§c你没有权限使用此命令")
+            sender.sendMessage("${messagePrefix}§c权限不足，无法执行此命令。")
             return true
         }
         val name = sender.name
         if (args.isEmpty()) {
             if (sender !is Player) {
-                sender.sendMessage("§c仅限玩家执行")
+                sender.sendMessage("${messagePrefix}§c此操作仅限玩家执行。")
                 return true
             }
-            sender.sendMessage("§e若要确认删除世界" + sender.world.name + "，请在10秒内输入/delete confirm")
+            sender.sendMessage("${messagePrefix}§e将在 10 秒内删除地图 ${sender.world.name}；请输入 /delete confirm 确认。")
             putNode(name, sender.world.name)
             return true
         }
@@ -48,30 +48,25 @@ class DeleteCommand(plugin: MapManagerImpl) : TabExecutor {
             val node = getNode(name)
             if (node != null) {
                 if (node.time + 10000 < System.currentTimeMillis()) {
-                    sender.sendMessage("§c已超过确认时间")
+                    sender.sendMessage("${messagePrefix}§c确认已超时，请重新执行删除命令。")
                     return true
                 }
             }
-            if (node != null) {
-                if (!node.world?.let { world.isExist(it) }!!) {
-                    sender.sendMessage("§c世界" + node.world + "不存在")
-                    return true
-                }
+            if (node == null) {
+                sender.sendMessage("${messagePrefix}§c没有待确认的删除操作。")
+                return true
             }
-
             // Process Command
             lastTime.remove(name)
-            sender.sendMessage("§e删除中...")
+            sender.sendMessage("${messagePrefix}§e正在删除地图，请稍候…")
             try {
-                if (node != null) {
-                    if (node.world?.let { map.deleteWorld(it) } == true) sender.sendMessage("§a删除成功") else sender.sendMessage("§c删除失败，详细请查看控制台")
-                }
+                if (node.world?.let { map.deleteWorld(it) } == true) sender.sendMessage("${messagePrefix}§a地图删除完成。") else sender.sendMessage("${messagePrefix}§c地图删除失败，请查看控制台日志。")
             } catch (e: Exception) {
                 e.printStackTrace()
-                sender.sendMessage("§c删除失败，详细请查看控制台")
+                sender.sendMessage("${messagePrefix}§c地图删除失败，请查看控制台日志。")
             }
         } else {
-            sender.sendMessage("§e若要确认删除世界" + args[0] + "，请在10秒内输入/delete confirm")
+            sender.sendMessage("${messagePrefix}§e将在 10 秒内删除地图 ${args[0]}；请输入 /delete confirm 确认。")
             putNode(name, args[0])
         }
         return true
@@ -84,6 +79,6 @@ class DeleteCommand(plugin: MapManagerImpl) : TabExecutor {
     }
 
     private fun getNode(operator: String?): DeletionNode? {
-        return lastTime.getOrDefault(operator, nullNode)
+        return lastTime[operator]
     }
 }
